@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { LogOut } from "lucide-react";
+import { SignOutButton } from "@/components/layout/sign-out-button";
 
 export function Header({
   userName,
@@ -38,15 +38,7 @@ export function Header({
         <div className="w-9 h-9 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold text-sm">
           {initial}
         </div>
-        <form action="/auth/signout" method="post">
-          <button
-            type="submit"
-            className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
-            title="Sign out"
-          >
-            <LogOut size={18} />
-          </button>
-        </form>
+        <SignOutButton />
       </div>
     </header>
   );
