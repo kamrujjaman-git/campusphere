@@ -25,14 +25,22 @@ export async function proxy(request: NextRequest) {
     }
   );
 
+  const isAuthPage = request.nextUrl.pathname.startsWith("/login");
+  const isAuthCallback = request.nextUrl.pathname.startsWith("/auth/callback");
+  const isAuthSignout = request.nextUrl.pathname.startsWith("/auth/signout");
+
+  // Let auth routes (callback, signout) pass through untouched —
+  // they manage the session themselves and don't need the
+  // getUser()/redirect logic below.
+  if (isAuthCallback || isAuthSignout) {
+    return supabaseResponse;
+  }
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const isAuthPage = request.nextUrl.pathname.startsWith("/login");
-  const isAuthCallback = request.nextUrl.pathname.startsWith("/auth/callback");
-
-  if (!user && !isAuthPage && !isAuthCallback) {
+  if (!user && !isAuthPage) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
