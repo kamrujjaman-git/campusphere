@@ -4,6 +4,7 @@ import { TotalFundCard } from "@/components/dashboard/total-fund-card";
 import { MyStatusCard } from "@/components/dashboard/my-status-card";
 import { QuickStatCard } from "@/components/dashboard/quick-stat-card";
 import { Users, CalendarDays, AlertCircle } from "lucide-react";
+import { RoleBadge } from "@/components/members/role-badge";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -15,7 +16,7 @@ export default async function DashboardPage() {
   if (!user) redirect("/login");
 
   const [profileResult, paidContributionsResult, expensesResult, myContributionsResult, memberCountResult, upcomingEventsResult, dueMembersResult] = await Promise.all([
-    supabase.from("profiles").select("full_name, role").eq("id", user.id).single(),
+    supabase.from("profiles").select("full_name, role, avatar_url").eq("id", user.id).single(),
     supabase.from("contributions").select("amount").eq("status", "paid"),
     supabase.from("expenses").select("amount"),
     supabase.from("contributions").select("amount, status").eq("user_id", user.id),
@@ -50,9 +51,12 @@ export default async function DashboardPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">
-          Welcome, {profile?.full_name?.split(" ")[0] || "Member"} 👋
-        </h1>
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="text-2xl font-bold">
+            Welcome, {profile?.full_name?.split(" ")[0] || "Member"} 👋
+          </h1>
+          {profile?.role && <RoleBadge role={profile.role} />}
+        </div>
         <p className="text-sm text-muted-foreground mt-1">
           Here&apos;s what&apos;s happening in PLAYBOYZ.
         </p>

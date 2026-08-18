@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { ProfileEditForm } from "@/components/settings/profile-edit-form";
 import { AdminSettingsPanel } from "@/components/settings/admin-settings-panel";
+import { AvatarUpload } from "@/components/settings/avatar-upload";
 
 export default async function SettingsPage() {
   const supabase = await createClient();
@@ -13,7 +14,7 @@ export default async function SettingsPage() {
   if (!user) redirect("/login");
 
   const [profileResult, settingsResult] = await Promise.all([
-    supabase.from("profiles").select("full_name, batch, phone, role").eq("id", user.id).single(),
+    supabase.from("profiles").select("full_name, batch, phone, role, avatar_url").eq("id", user.id).single(),
     supabase.from("app_settings").select("weekly_contribution_amount").eq("id", 1).single(),
   ]);
 
@@ -37,6 +38,10 @@ export default async function SettingsPage() {
         batch={profile?.batch ?? ""}
         phone={profile?.phone ?? ""}
       />
+
+      <div className="rounded-xl border border-border bg-card p-4">
+        <AvatarUpload avatarUrl={profile?.avatar_url ?? null} />
+      </div>
 
       {isAdmin && (
         <AdminSettingsPanel

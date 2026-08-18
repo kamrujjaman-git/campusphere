@@ -3,16 +3,21 @@
 import Image from "next/image";
 import { SignOutButton } from "@/components/layout/sign-out-button";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
+import { AvatarDisplay } from "@/components/members/avatar-display";
+import { RoleBadge } from "@/components/members/role-badge";
+import type { UserRole } from "@/types/profile";
 
 export function Header({
   userName,
   userEmail,
+  userRole,
+  avatarUrl,
 }: {
   userName: string;
   userEmail: string;
+  userRole: UserRole;
+  avatarUrl: string | null;
 }) {
-  const initial = userName?.charAt(0)?.toUpperCase() ?? "?";
-
   return (
     <header className="sticky top-0 z-30 flex items-center justify-between h-16 px-4 md:px-8 border-b border-border bg-background/80 backdrop-blur-md">
       <div className="md:hidden flex items-center gap-2">
@@ -31,15 +36,16 @@ export function Header({
 
       <div className="flex items-center gap-3">
         <div className="text-right hidden sm:block">
-          <p className="text-sm font-medium leading-tight">{userName}</p>
+          <div className="flex items-center justify-end gap-2">
+            <p className="text-sm font-medium leading-tight">{userName}</p>
+            <RoleBadge role={userRole} />
+          </div>
           <p className="text-xs text-muted-foreground leading-tight">
             {userEmail}
           </p>
         </div>
         <ThemeToggle />
-        <div className="w-9 h-9 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold text-sm">
-          {initial}
-        </div>
+        <AvatarDisplay name={userName} avatarUrl={avatarUrl} />
         <SignOutButton />
       </div>
     </header>

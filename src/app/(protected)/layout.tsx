@@ -20,7 +20,7 @@ export default async function ProtectedLayout({
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("full_name, status")
+    .select("full_name, status, role, avatar_url")
     .eq("id", user.id)
     .single();
 
@@ -36,6 +36,8 @@ export default async function ProtectedLayout({
         <Header
           userName={profile?.full_name || "Member"}
           userEmail={user.email ?? ""}
+          userRole={profile?.role ?? "member"}
+          avatarUrl={profile?.avatar_url ?? null}
         />
         <main className="p-4 md:p-8 pb-24 md:pb-8">{children}</main>
       </div>

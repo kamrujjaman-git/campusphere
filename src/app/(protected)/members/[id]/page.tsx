@@ -2,13 +2,8 @@ import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import { MemberRoleControl } from "@/components/members/member-role-control";
 import { DeleteMemberButton } from "@/components/members/delete-member-button";
-
-const roleLabels: Record<string, string> = {
-  super_admin: "Super Admin",
-  admin: "Admin",
-  treasurer: "Treasurer",
-  member: "Member",
-};
+import { AvatarDisplay } from "@/components/members/avatar-display";
+import { RoleBadge } from "@/components/members/role-badge";
 
 export default async function MemberProfilePage({
   params,
@@ -39,12 +34,20 @@ export default async function MemberProfilePage({
 
   if (!profile) notFound();
 
-  const { data: contributions } = await supabase
-    .from("contributions")
-    .select("*")
-    .eq("user_id", id)
-    .order("created_at", { ascending: false })
-    .limit(10);
+  const canViewFinancials =
+    currentUser?.id === id ||
+    currentProfile?.role === "super_admin" ||
+    currentProfile?.role === "admin" ||
+    currentProfile?.role === "treasurer";
+
+  const { data: contributions } = canViewFinancials
+    ? await supabase
+      .from("contributions")
+      .select("*")
+      .eq("user_id", id)
+      .order("created_at", { ascending: false })
+      .limit(10)
+    : { data: null };
 
   const totalPaid =
     contributions
@@ -56,24 +59,20 @@ export default async function MemberProfilePage({
       ?.filter((c) => c.status === "due")
       .reduce((sum, c) => sum + Number(c.amount), 0) ?? 0;
 
-  const initial = profile.full_name?.charAt(0)?.toUpperCase() ?? "?";
-
   return (
     <div className="max-w-3xl">
       <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-8">
-        <div className="w-20 h-20 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-2xl font-bold flex-shrink-0">
-          {initial}
-        </div>
+        <AvatarDisplay name={profile.full_name} avatarUrl={profile.avatar_url} size="lg" />
         <div className="flex-1">
           <h1 className="text-2xl font-bold">{profile.full_name}</h1>
           <div className="flex flex-wrap items-center gap-2 mt-1.5">
             <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-primary/15 text-primary">
-              {roleLabels[profile.role]}
+              <RoleBadge role={profile.role} />
             </span>
             <span
               className={`text-xs font-medium px-2 py-0.5 rounded-full ${profile.status === "active"
-                  ? "bg-green-500/15 text-green-400"
-                  : "bg-secondary text-muted-foreground"
+                ? "bg-green-500/15 text-green-400"
+                : "bg-secondary text-muted-foreground"
                 }`}
             >
               {profile.status === "active" ? "Active" : "Inactive"}
@@ -87,7 +86,7 @@ export default async function MemberProfilePage({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 mb-8">
+      {canViewFinancials && <div className="grid grid-cols-2 gap-4 mb-8">
         <div className="p-4 rounded-xl bg-card border border-border">
           <p className="text-xs text-muted-foreground mb-1">Total Paid</p>
           <p className="text-xl font-bold text-primary">৳{totalPaid}</p>
@@ -96,7 +95,7 @@ export default async function MemberProfilePage({
           <p className="text-xs text-muted-foreground mb-1">Total Due</p>
           <p className="text-xl font-bold text-destructive">৳{totalDue}</p>
         </div>
-      </div>
+      </div>}
 
       {profile.phone && (
         <div className="mb-8 p-4 rounded-xl bg-card border border-border">
@@ -105,7 +104,7 @@ export default async function MemberProfilePage({
         </div>
       )}
 
-      <div className="mb-8">
+      {canViewFinancials && <div className="mb-8">
         <h2 className="text-sm font-semibold text-muted-foreground mb-3">
           Recent Contributions
         </h2>
@@ -123,8 +122,8 @@ export default async function MemberProfilePage({
                   <span className="font-medium">৳{c.amount}</span>
                   <span
                     className={`text-xs font-medium px-2 py-0.5 rounded-full ${c.status === "paid"
-                        ? "bg-green-500/15 text-green-400"
-                        : "bg-yellow-500/15 text-yellow-400"
+                      ? "bg-green-500/15 text-green-400"
+                      : "bg-yellow-500/15 text-yellow-400"
                       }`}
                   >
                     {c.status === "paid" ? "Paid" : "Due"}
@@ -138,7 +137,7 @@ export default async function MemberProfilePage({
             No contribution history yet.
           </p>
         )}
-      </div>
+      </div>}
 
       {canManage && (
         <div className="space-y-4">
