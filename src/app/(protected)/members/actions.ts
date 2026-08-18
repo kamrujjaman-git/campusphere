@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
 import type { UserRole, UserStatus } from "@/types/profile";
+import { isPlatformOwner, validateUniversityEmail } from "@/lib/community-validation";
 
 const validRoles = new Set<UserRole>([
   "super_admin",
@@ -27,7 +28,7 @@ async function requireMemberManager() {
 
   const { data: requesterProfile, error } = await supabase
     .from("profiles")
-    .select("role")
+    .select("role, community_id")
     .eq("id", user.id)
     .single();
 
@@ -42,7 +43,12 @@ async function requireMemberManager() {
     throw new Error("Only super admins and admins can manage members.");
   }
 
-  return { userId: user.id, requesterRole: requesterProfile.role as UserRole };
+  return {
+    userId: user.id,
+    userEmail: user.email ?? "",
+    requesterRole: requesterProfile.role as UserRole,
+    communityId: requesterProfile.community_id as string | null,
+  };
 }
 
 function canManageTarget(
@@ -59,18 +65,19 @@ export async function updateMemberRoleStatus(
   role: UserRole,
   status: UserStatus
 ): Promise<ActionResult> {
-  const { userId, requesterRole } = await requireMemberManager();
+  const { userId, userEmail, requesterRole, communityId } = await requireMemberManager();
+  const scope = <T,>(query: T): T => isPlatformOwner(userEmail) || !communityId ? query : (query as { eq: (field: string, value: string) => T }).eq("community_id", communityId);
 
   if (!validRoles.has(role) || !validStatuses.has(status)) {
     return { success: false, error: "Invalid member role or status." };
   }
 
   const adminClient = createAdminClient();
-  const { data: targetProfile, error: targetError } = await adminClient
+  const { data: targetProfile, error: targetError } = await scope(adminClient
     .from("profiles")
     .select("role")
     .eq("id", memberId)
-    .maybeSingle();
+    .maybeSingle());
 
   if (targetError || !targetProfile) {
     return { success: false, error: "Member profile was not found." };
@@ -90,12 +97,12 @@ export async function updateMemberRoleStatus(
     };
   }
 
-  const { data: updatedProfile, error } = await adminClient
+  const { data: updatedProfile, error } = await scope(adminClient
     .from("profiles")
     .update({ role, status })
     .eq("id", memberId)
     .select("id")
-    .maybeSingle();
+    .maybeSingle());
 
   if (error || !updatedProfile) {
     return {
@@ -111,7 +118,7 @@ export async function updateMemberRoleStatus(
 }
 
 export async function createMember(formData: FormData): Promise<ActionResult> {
-  const { requesterRole } = await requireMemberManager();
+  const { requesterRole, communityId, userEmail } = await requireMemberManager();
   const fullName = String(formData.get("full_name") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const phone = String(formData.get("phone") ?? "").trim();
@@ -134,6 +141,31 @@ export async function createMember(formData: FormData): Promise<ActionResult> {
     return { success: false, error: "Admins cannot create super admin profiles." };
   }
 
+  const ownerBypass = isPlatformOwner(userEmail);
+  if (!ownerBypass) {
+    if (!communityId) {
+      return { success: false, error: "Your account is not linked to a community." };
+    }
+
+    const emailValidation = validateUniversityEmail(email);
+    if (!emailValidation.valid) {
+      return { success: false, error: emailValidation.error };
+    }
+
+    const supabase = await createClient();
+    const { data: community, error: communityError } = await supabase
+      .from("communities")
+      .select("domain")
+      .eq("id", communityId)
+      .maybeSingle();
+    if (communityError || !community) {
+      return { success: false, error: "Your community could not be verified." };
+    }
+    if (emailValidation.domain !== String(community.domain).toLowerCase()) {
+      return { success: false, error: "Member email must match your community's university domain." };
+    }
+  }
+
   const adminClient = createAdminClient();
   const { data: authData, error: authError } =
     await adminClient.auth.admin.createUser({
@@ -153,6 +185,7 @@ export async function createMember(formData: FormData): Promise<ActionResult> {
     id: authData.user.id,
     full_name: fullName,
     phone: phone || null,
+    community_id: communityId,
     role,
     status,
     profile_completed: true,
@@ -171,18 +204,19 @@ export async function createMember(formData: FormData): Promise<ActionResult> {
 }
 
 export async function deleteMember(memberId: string): Promise<ActionResult> {
-  const { userId, requesterRole } = await requireMemberManager();
+  const { userId, userEmail, requesterRole, communityId } = await requireMemberManager();
+  const scope = <T,>(query: T): T => isPlatformOwner(userEmail) || !communityId ? query : (query as { eq: (field: string, value: string) => T }).eq("community_id", communityId);
 
   if (memberId === userId) {
     return { success: false, error: "You cannot delete your own account." };
   }
 
   const adminClient = createAdminClient();
-  const { data: targetProfile, error: targetError } = await adminClient
+  const { data: targetProfile, error: targetError } = await scope(adminClient
     .from("profiles")
     .select("role")
     .eq("id", memberId)
-    .maybeSingle();
+    .maybeSingle());
 
   if (targetError || !targetProfile) {
     return { success: false, error: "Member profile was not found." };
@@ -203,10 +237,10 @@ export async function deleteMember(memberId: string): Promise<ActionResult> {
     };
   }
 
-  const { error: profileError } = await adminClient
+  const { error: profileError } = await scope(adminClient
     .from("profiles")
     .delete()
-    .eq("id", memberId);
+    .eq("id", memberId));
 
   if (profileError) {
     return {

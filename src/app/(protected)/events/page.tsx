@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { EventCard } from "@/components/events/event-card";
 import { AddEventForm } from "@/components/events/add-event-form";
 import type { Event } from "@/types/event";
+import { getTenantContext } from "@/lib/supabase/tenant";
 
 export default async function EventsPage() {
   const supabase = await createClient();
@@ -9,10 +10,13 @@ export default async function EventsPage() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  const tenant = await getTenantContext(supabase);
+  if (!tenant) return null;
+  const communityFilter = <T,>(query: T): T => tenant.isOwner || !tenant.communityId ? query : (query as { eq: (field: string, value: string) => T }).eq("community_id", tenant.communityId);
 
   const [profileResult, eventsResult] = await Promise.all([
     supabase.from("profiles").select("role").eq("id", user?.id).single(),
-    supabase.from("events").select("*").order("event_date", { ascending: true, nullsFirst: false }).order("created_at", { ascending: false }),
+    communityFilter(supabase.from("events").select("*").order("event_date", { ascending: true, nullsFirst: false }).order("created_at", { ascending: false })),
   ]);
 
   const myProfile = profileResult.data;
@@ -27,11 +31,11 @@ export default async function EventsPage() {
   let goingCounts: Record<string, number> = {};
 
   if (eventIds.length > 0) {
-    const { data: participants } = await supabase
+    const { data: participants } = await communityFilter(supabase
       .from("event_participants")
       .select("event_id, rsvp_status")
       .in("event_id", eventIds)
-      .eq("rsvp_status", "going");
+      .eq("rsvp_status", "going"));
 
     goingCounts = (participants ?? []).reduce((acc, p) => {
       acc[p.event_id] = (acc[p.event_id] ?? 0) + 1;

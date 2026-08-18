@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { getTenantContext } from "@/lib/supabase/tenant";
 
 async function requireAdminOrTreasurer() {
   const supabase = await createClient();
@@ -25,7 +26,7 @@ async function requireAdminOrTreasurer() {
     throw new Error("Only admins or treasurers can do this.");
   }
 
-  return { supabase, userId: user.id };
+  return { supabase, userId: user.id, tenant: await getTenantContext(supabase) };
 }
 
 function getMonday(date: Date) {
@@ -40,7 +41,8 @@ function getMonday(date: Date) {
 // skipping members who already have one for this week.
 export async function generateWeeklyDues() {
   try {
-    const { supabase } = await requireAdminOrTreasurer();
+    const { supabase, tenant } = await requireAdminOrTreasurer();
+    const scope = <T,>(query: T): T => tenant?.isOwner || !tenant?.communityId ? query : (query as { eq: (field: string, value: string) => T }).eq("community_id", tenant.communityId);
     const weekStart = getMonday(new Date());
 
     const { data: appSettings } = await supabase
@@ -50,10 +52,10 @@ export async function generateWeeklyDues() {
       .maybeSingle();
     const weeklyAmount = Number(appSettings?.weekly_contribution_amount) || 50;
 
-    const { data: activeMembers, error: activeMembersError } = await supabase
+    const { data: activeMembers, error: activeMembersError } = await scope(supabase
       .from("profiles")
       .select("id")
-      .eq("status", "active");
+      .eq("status", "active"));
 
     if (activeMembersError) {
       return { success: false, count: 0, error: activeMembersError.message };
@@ -63,11 +65,11 @@ export async function generateWeeklyDues() {
       return { success: true, count: 0 };
     }
 
-    const { data: existing, error: existingError } = await supabase
+    const { data: existing, error: existingError } = await scope(supabase
       .from("contributions")
       .select("user_id")
       .eq("type", "weekly")
-      .eq("week_start_date", weekStart);
+      .eq("week_start_date", weekStart));
 
     if (existingError) {
       return { success: false, count: 0, error: existingError.message };
@@ -82,6 +84,7 @@ export async function generateWeeklyDues() {
         amount: weeklyAmount,
         week_start_date: weekStart,
         status: "due" as const,
+        community_id: tenant?.communityId,
       }));
 
     if (toCreate.length === 0) {
@@ -113,9 +116,9 @@ export async function generateWeeklyDues() {
 }
 
 export async function markContributionPaid(contributionId: string) {
-  const { supabase, userId } = await requireAdminOrTreasurer();
+  const { supabase, userId, tenant } = await requireAdminOrTreasurer();
 
-  const { error } = await supabase
+  let query = supabase
     .from("contributions")
     .update({
       status: "paid",
@@ -123,6 +126,8 @@ export async function markContributionPaid(contributionId: string) {
       marked_by: userId,
     })
     .eq("id", contributionId);
+  if (tenant?.communityId && !tenant.isOwner) query = query.eq("community_id", tenant.communityId);
+  const { error } = await query;
 
   if (error) throw new Error(error.message);
 
@@ -131,12 +136,14 @@ export async function markContributionPaid(contributionId: string) {
 }
 
 export async function markContributionDue(contributionId: string) {
-  const { supabase } = await requireAdminOrTreasurer();
+  const { supabase, tenant } = await requireAdminOrTreasurer();
 
-  const { error } = await supabase
+  let query = supabase
     .from("contributions")
     .update({ status: "due", paid_at: null, marked_by: null })
     .eq("id", contributionId);
+  if (tenant?.communityId && !tenant.isOwner) query = query.eq("community_id", tenant.communityId);
+  const { error } = await query;
 
   if (error) throw new Error(error.message);
 
@@ -149,7 +156,7 @@ export async function updateContribution(
   amount: number,
   status: "due" | "paid"
 ) {
-  const { supabase, userId } = await requireAdminOrTreasurer();
+  const { supabase, userId, tenant } = await requireAdminOrTreasurer();
 
   if (!Number.isFinite(amount) || amount <= 0) {
     throw new Error("Contribution amount must be greater than zero.");
@@ -159,7 +166,7 @@ export async function updateContribution(
     throw new Error("Invalid contribution status.");
   }
 
-  const { data, error } = await supabase
+  let query = supabase
     .from("contributions")
     .update({
       amount,
@@ -167,9 +174,9 @@ export async function updateContribution(
       paid_at: status === "paid" ? new Date().toISOString() : null,
       marked_by: status === "paid" ? userId : null,
     })
-    .eq("id", contributionId)
-    .select("id")
-    .maybeSingle();
+    .eq("id", contributionId);
+  if (tenant?.communityId && !tenant.isOwner) query = query.eq("community_id", tenant.communityId);
+  const { data, error } = await query.select("id").maybeSingle();
 
   if (error) throw new Error(`Contribution update failed: ${error.message}`);
   if (!data) throw new Error("Contribution was not found or could not be updated.");
@@ -179,14 +186,14 @@ export async function updateContribution(
 }
 
 export async function deleteContribution(contributionId: string) {
-  const { supabase } = await requireAdminOrTreasurer();
+  const { supabase, tenant } = await requireAdminOrTreasurer();
 
-  const { data, error } = await supabase
+  let query = supabase
     .from("contributions")
     .delete()
-    .eq("id", contributionId)
-    .select("id")
-    .maybeSingle();
+    .eq("id", contributionId);
+  if (tenant?.communityId && !tenant.isOwner) query = query.eq("community_id", tenant.communityId);
+  const { data, error } = await query.select("id").maybeSingle();
 
   if (error) throw new Error(`Contribution deletion failed: ${error.message}`);
   if (!data) throw new Error("Contribution was not found or could not be deleted.");
@@ -200,12 +207,13 @@ export async function createEventContribution(
   eventId: string,
   amount: number
 ) {
-  const { supabase } = await requireAdminOrTreasurer();
+  const { supabase, tenant } = await requireAdminOrTreasurer();
+  const scope = <T,>(query: T): T => tenant?.isOwner || !tenant?.communityId ? query : (query as { eq: (field: string, value: string) => T }).eq("community_id", tenant.communityId);
 
-  const { data: activeMembers } = await supabase
+  const { data: activeMembers } = await scope(supabase
     .from("profiles")
     .select("id")
-    .eq("status", "active");
+    .eq("status", "active"));
 
   if (!activeMembers || activeMembers.length === 0) {
     return { created: 0 };
@@ -217,6 +225,7 @@ export async function createEventContribution(
     event_id: eventId,
     amount,
     status: "due" as const,
+    community_id: tenant?.communityId,
   }));
 
   const { error } = await supabase.from("contributions").insert(toCreate);

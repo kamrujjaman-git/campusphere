@@ -5,6 +5,7 @@ import { MyStatusCard } from "@/components/dashboard/my-status-card";
 import { QuickStatCard } from "@/components/dashboard/quick-stat-card";
 import { Users, CalendarDays, AlertCircle } from "lucide-react";
 import { RoleBadge } from "@/components/members/role-badge";
+import { getTenantContext } from "@/lib/supabase/tenant";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -14,15 +15,21 @@ export default async function DashboardPage() {
   } = await supabase.auth.getUser();
 
   if (!user) redirect("/login");
+  const tenant = await getTenantContext(supabase);
+  if (!tenant) redirect("/login");
+  const communityFilter = <T,>(query: T): T =>
+    tenant.isOwner || !tenant.communityId
+      ? query
+      : (query as { eq: (field: string, value: string) => T }).eq("community_id", tenant.communityId);
 
   const [profileResult, paidContributionsResult, expensesResult, myContributionsResult, memberCountResult, upcomingEventsResult, dueMembersResult] = await Promise.all([
     supabase.from("profiles").select("full_name, role, avatar_url").eq("id", user.id).single(),
-    supabase.from("contributions").select("amount").eq("status", "paid"),
-    supabase.from("expenses").select("amount"),
-    supabase.from("contributions").select("amount, status").eq("user_id", user.id),
-    supabase.from("profiles").select("*", { count: "exact", head: true }).eq("status", "active"),
-    supabase.from("events").select("*", { count: "exact", head: true }).eq("status", "upcoming"),
-    supabase.from("contributions").select("*", { count: "exact", head: true }).eq("status", "due"),
+    communityFilter(supabase.from("contributions").select("amount").eq("status", "paid")),
+    communityFilter(supabase.from("expenses").select("amount")),
+    communityFilter(supabase.from("contributions").select("amount, status").eq("user_id", user.id)),
+    communityFilter(supabase.from("profiles").select("*", { count: "exact", head: true }).eq("status", "active")),
+    communityFilter(supabase.from("events").select("*", { count: "exact", head: true }).eq("status", "upcoming")),
+    communityFilter(supabase.from("contributions").select("*", { count: "exact", head: true }).eq("status", "due")),
   ]);
 
   const profile = profileResult.data;

@@ -12,6 +12,7 @@ import {
   Settings,
 } from "lucide-react";
 import { motion } from "framer-motion";
+import { isPlatformOwner } from "@/lib/community-validation";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -22,8 +23,11 @@ const navItems = [
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
-export function Sidebar() {
+export function Sidebar({ userEmail }: { userEmail: string }) {
   const pathname = usePathname();
+  const visibleNavItems = isPlatformOwner(userEmail)
+    ? [...navItems, { href: "/owner", label: "Global Management", icon: Settings }]
+    : navItems;
 
   return (
     <aside className="hidden md:flex md:flex-col md:w-64 md:fixed md:inset-y-0 border-r border-border bg-card">
@@ -41,7 +45,7 @@ export function Sidebar() {
       </div>
 
       <nav className="flex-1 px-3 py-6 space-y-1">
-        {navItems.map((item) => {
+        {visibleNavItems.map((item) => {
           const isActive = pathname.startsWith(item.href);
           return (
             <Link
@@ -57,15 +61,13 @@ export function Sidebar() {
                 />
               )}
               <item.icon
-                className={`relative w-4.5 h-4.5 ${
-                  isActive ? "text-primary" : "text-muted-foreground"
-                }`}
+                className={`relative w-4.5 h-4.5 ${isActive ? "text-primary" : "text-muted-foreground"
+                  }`}
                 size={18}
               />
               <span
-                className={`relative ${
-                  isActive ? "text-foreground" : "text-muted-foreground"
-                }`}
+                className={`relative ${isActive ? "text-foreground" : "text-muted-foreground"
+                  }`}
               >
                 {item.label}
               </span>

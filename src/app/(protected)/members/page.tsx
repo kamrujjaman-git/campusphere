@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { MemberDirectory } from "@/components/members/member-directory";
 import type { Profile } from "@/types/profile";
+import { getTenantContext } from "@/lib/supabase/tenant";
 
 export default async function MembersPage() {
   const supabase = await createClient();
@@ -8,10 +9,14 @@ export default async function MembersPage() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  const tenant = await getTenantContext(supabase);
+  if (!tenant) return null;
 
   const [currentProfileResult, profilesResult] = await Promise.all([
     supabase.from("profiles").select("role").eq("id", user?.id).maybeSingle(),
-    supabase.from("profiles").select("*").order("full_name", { ascending: true }),
+    tenant.isOwner || !tenant.communityId
+      ? supabase.from("profiles").select("*").order("full_name", { ascending: true })
+      : supabase.from("profiles").select("*").eq("community_id", tenant.communityId).order("full_name", { ascending: true }),
   ]);
 
   const currentProfile = currentProfileResult.data;

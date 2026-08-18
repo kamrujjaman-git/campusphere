@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { getTenantContext } from "@/lib/supabase/tenant";
 
 async function requireAdmin() {
   const supabase = await createClient();
@@ -25,11 +26,11 @@ async function requireAdmin() {
     throw new Error("Only super admins, admins, and treasurers can manage announcements.");
   }
 
-  return { supabase, userId: user.id };
+  return { supabase, userId: user.id, tenant: await getTenantContext(supabase) };
 }
 
 export async function createAnnouncement(formData: FormData) {
-  const { supabase, userId } = await requireAdmin();
+  const { supabase, userId, tenant } = await requireAdmin();
 
   const title = formData.get("title") as string;
   const body = formData.get("body") as string;
@@ -42,6 +43,7 @@ export async function createAnnouncement(formData: FormData) {
     title,
     body,
     created_by: userId,
+    community_id: tenant?.communityId,
   });
 
   if (error) throw new Error(error.message);
@@ -50,12 +52,14 @@ export async function createAnnouncement(formData: FormData) {
 }
 
 export async function deleteAnnouncement(id: string) {
-  const { supabase } = await requireAdmin();
+  const { supabase, tenant } = await requireAdmin();
 
-  const { error } = await supabase
+  let query = supabase
     .from("announcements")
     .delete()
     .eq("id", id);
+  if (tenant?.communityId && !tenant.isOwner) query = query.eq("community_id", tenant.communityId);
+  const { error } = await query;
 
   if (error) throw new Error(error.message);
 
@@ -63,7 +67,7 @@ export async function deleteAnnouncement(id: string) {
 }
 
 export async function updateAnnouncement(id: string, formData: FormData) {
-  const { supabase } = await requireAdmin();
+  const { supabase, tenant } = await requireAdmin();
   const title = String(formData.get("title") ?? "").trim();
   const body = String(formData.get("body") ?? "").trim();
 
@@ -71,12 +75,12 @@ export async function updateAnnouncement(id: string, formData: FormData) {
     throw new Error("Title and message are required.");
   }
 
-  const { data, error } = await supabase
+  let query = supabase
     .from("announcements")
     .update({ title, body })
-    .eq("id", id)
-    .select("id")
-    .maybeSingle();
+    .eq("id", id);
+  if (tenant?.communityId && !tenant.isOwner) query = query.eq("community_id", tenant.communityId);
+  const { data, error } = await query.select("id").maybeSingle();
 
   if (error) throw new Error(`Announcement update failed: ${error.message}`);
   if (!data) throw new Error("Announcement was not found or could not be updated.");

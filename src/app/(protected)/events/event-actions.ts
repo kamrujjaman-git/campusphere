@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import type { EventType, EventStatus, RsvpStatus } from "@/types/event";
+import { getTenantContext } from "@/lib/supabase/tenant";
 
 async function requireAdmin() {
   const supabase = await createClient();
@@ -22,11 +23,12 @@ async function requireAdmin() {
     throw new Error("Only super admins and admins can manage events.");
   }
 
-  return { supabase, userId: user.id };
+  const tenant = await getTenantContext(supabase);
+  return { supabase, userId: user.id, tenant };
 }
 
 export async function createEvent(formData: FormData) {
-  const { supabase, userId } = await requireAdmin();
+  const { supabase, userId, tenant } = await requireAdmin();
 
   const title = formData.get("title") as string;
   const type = formData.get("type") as EventType;
@@ -51,6 +53,7 @@ export async function createEvent(formData: FormData) {
     budget,
     extra_contribution_amount: extraContribution,
     created_by: userId,
+    community_id: tenant?.communityId,
   });
 
   if (error) throw new Error(error.message);
@@ -59,7 +62,7 @@ export async function createEvent(formData: FormData) {
 }
 
 export async function updateEvent(eventId: string, formData: FormData) {
-  const { supabase } = await requireAdmin();
+  const { supabase, tenant } = await requireAdmin();
   const title = String(formData.get("title") ?? "").trim();
   const type = String(formData.get("type") ?? "") as EventType;
   const description = String(formData.get("description") ?? "").trim();
@@ -76,7 +79,7 @@ export async function updateEvent(eventId: string, formData: FormData) {
     throw new Error("Budget values must be valid non-negative numbers.");
   }
 
-  const { data, error } = await supabase
+  let updateQuery = supabase
     .from("events")
     .update({
       title,
@@ -87,9 +90,9 @@ export async function updateEvent(eventId: string, formData: FormData) {
       budget,
       extra_contribution_amount: extraContribution,
     })
-    .eq("id", eventId)
-    .select("id")
-    .maybeSingle();
+    .eq("id", eventId);
+  if (tenant?.communityId && !tenant.isOwner) updateQuery = updateQuery.eq("community_id", tenant.communityId);
+  const { data, error } = await updateQuery.select("id").maybeSingle();
 
   if (error) throw new Error(`Event update failed: ${error.message}`);
   if (!data) throw new Error("Event was not found or could not be updated.");
@@ -99,26 +102,25 @@ export async function updateEvent(eventId: string, formData: FormData) {
 }
 
 export async function deleteEvent(eventId: string) {
-  const { supabase } = await requireAdmin();
+  const { supabase, tenant } = await requireAdmin();
+  const scope = <T,>(query: T): T => tenant?.isOwner || !tenant?.communityId ? query : (query as { eq: (field: string, value: string) => T }).eq("community_id", tenant.communityId);
 
-  const { error: participantError } = await supabase
+  const { error: participantError } = await scope(supabase
     .from("event_participants")
     .delete()
-    .eq("event_id", eventId);
+    .eq("event_id", eventId));
   if (participantError) throw new Error(`Event RSVP cleanup failed: ${participantError.message}`);
 
-  const { error: contributionError } = await supabase
+  const { error: contributionError } = await scope(supabase
     .from("contributions")
     .delete()
-    .eq("event_id", eventId);
+    .eq("event_id", eventId));
   if (contributionError) throw new Error(`Event contribution cleanup failed: ${contributionError.message}`);
 
-  const { data, error } = await supabase
+  const { data, error } = await scope(supabase
     .from("events")
     .delete()
-    .eq("id", eventId)
-    .select("id")
-    .maybeSingle();
+    .eq("id", eventId)).select("id").maybeSingle();
 
   if (error) throw new Error(`Event deletion failed: ${error.message}`);
   if (!data) throw new Error("Event was not found or could not be deleted.");
@@ -128,12 +130,14 @@ export async function deleteEvent(eventId: string) {
 }
 
 export async function updateEventStatus(eventId: string, status: EventStatus) {
-  const { supabase } = await requireAdmin();
+  const { supabase, tenant } = await requireAdmin();
 
-  const { error } = await supabase
+  let query = supabase
     .from("events")
     .update({ status })
     .eq("id", eventId);
+  if (tenant?.communityId && !tenant.isOwner) query = query.eq("community_id", tenant.communityId);
+  const { error } = await query;
 
   if (error) throw new Error(error.message);
 
@@ -148,6 +152,8 @@ export async function setRsvp(eventId: string, status: RsvpStatus) {
   } = await supabase.auth.getUser();
 
   if (!user) throw new Error("Not authenticated");
+  const tenant = await getTenantContext(supabase);
+  if (!tenant?.communityId && !tenant?.isOwner) throw new Error("Your account is not linked to a community.");
 
   if (!["going", "not_going", "pending"].includes(status)) {
     throw new Error("Invalid RSVP status.");
@@ -163,11 +169,12 @@ export async function setRsvp(eventId: string, status: RsvpStatus) {
     throw new Error("Only active members can RSVP to events.");
   }
 
-  const { data: event } = await supabase
+  let eventQuery = supabase
     .from("events")
     .select("id")
-    .eq("id", eventId)
-    .single();
+    .eq("id", eventId);
+  if (tenant.communityId && !tenant.isOwner) eventQuery = eventQuery.eq("community_id", tenant.communityId);
+  const { data: event } = await eventQuery.single();
 
   if (!event) throw new Error("Event not found.");
 
@@ -188,33 +195,33 @@ export async function setRsvp(eventId: string, status: RsvpStatus) {
 
 // Generates an extra "due" contribution for this event for every active member.
 export async function generateEventContributions(eventId: string) {
-  const { supabase } = await requireAdmin();
+  const { supabase, tenant } = await requireAdmin();
+  const scope = <T,>(query: T): T => tenant?.isOwner || !tenant?.communityId ? query : (query as { eq: (field: string, value: string) => T }).eq("community_id", tenant.communityId);
 
-  const { data: event } = await supabase
+  const { data: event } = await scope(supabase
     .from("events")
     .select("extra_contribution_amount")
-    .eq("id", eventId)
-    .single();
+    .eq("id", eventId)).single();
 
   const amount = event?.extra_contribution_amount ?? 0;
   if (!amount || amount <= 0) {
     throw new Error("Set an extra contribution amount on this event first.");
   }
 
-  const { data: activeMembers } = await supabase
+  const { data: activeMembers } = await scope(supabase
     .from("profiles")
     .select("id")
-    .eq("status", "active");
+    .eq("status", "active"));
 
   if (!activeMembers || activeMembers.length === 0) {
     return { created: 0 };
   }
 
-  const { data: existing } = await supabase
+  const { data: existing } = await scope(supabase
     .from("contributions")
     .select("user_id")
     .eq("type", "event")
-    .eq("event_id", eventId);
+    .eq("event_id", eventId));
 
   const existingUserIds = new Set(existing?.map((e) => e.user_id));
   const toCreate = activeMembers
@@ -225,6 +232,7 @@ export async function generateEventContributions(eventId: string) {
       event_id: eventId,
       amount,
       status: "due" as const,
+      community_id: tenant?.communityId,
     }));
 
   if (toCreate.length === 0) {

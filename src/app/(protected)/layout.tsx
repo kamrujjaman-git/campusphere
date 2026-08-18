@@ -31,7 +31,7 @@ export default async function ProtectedLayout({
 
   return (
     <div className="min-h-screen bg-background">
-      <Sidebar />
+      <Sidebar userEmail={user.email ?? ""} />
       <div className="md:pl-64">
         <Header
           userName={profile?.full_name || "Member"}

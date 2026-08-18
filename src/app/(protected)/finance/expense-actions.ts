@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import type { ExpenseCategory } from "@/types/expense";
+import { getTenantContext } from "@/lib/supabase/tenant";
 
 const MAX_RECEIPT_SIZE = 5 * 1024 * 1024;
 const RECEIPT_TYPES: Record<string, string> = {
@@ -35,11 +36,11 @@ async function requireAdminOrTreasurer() {
     throw new Error("Only admins or treasurers can do this.");
   }
 
-  return { supabase, userId: user.id };
+  return { supabase, userId: user.id, tenant: await getTenantContext(supabase) };
 }
 
 export async function createExpense(formData: FormData) {
-  const { supabase, userId } = await requireAdminOrTreasurer();
+  const { supabase, userId, tenant } = await requireAdminOrTreasurer();
 
   const title = formData.get("title") as string;
   const category = formData.get("category") as ExpenseCategory;
@@ -102,6 +103,7 @@ export async function createExpense(formData: FormData) {
     receipt_url: receiptUrl,
     spent_by: userId,
     approved_by: userId,
+    community_id: tenant?.communityId,
   });
 
   if (error) {
@@ -125,12 +127,14 @@ export async function createExpense(formData: FormData) {
 }
 
 export async function deleteExpense(expenseId: string) {
-  const { supabase } = await requireAdminOrTreasurer();
+  const { supabase, tenant } = await requireAdminOrTreasurer();
 
-  const { error } = await supabase
+  let query = supabase
     .from("expenses")
     .delete()
     .eq("id", expenseId);
+  if (tenant?.communityId && !tenant.isOwner) query = query.eq("community_id", tenant.communityId);
+  const { error } = await query;
 
   if (error) throw new Error(error.message);
 
@@ -139,7 +143,7 @@ export async function deleteExpense(expenseId: string) {
 }
 
 export async function updateExpense(expenseId: string, formData: FormData) {
-  const { supabase } = await requireAdminOrTreasurer();
+  const { supabase, tenant } = await requireAdminOrTreasurer();
   const title = String(formData.get("title") ?? "").trim();
   const category = String(formData.get("category") ?? "");
   const amount = Number(formData.get("amount"));
@@ -156,12 +160,12 @@ export async function updateExpense(expenseId: string, formData: FormData) {
     throw new Error("Please provide a valid expense date.");
   }
 
-  const { data, error } = await supabase
+  let query = supabase
     .from("expenses")
     .update({ title, category, amount, expense_date: expenseDate })
-    .eq("id", expenseId)
-    .select("id")
-    .maybeSingle();
+    .eq("id", expenseId);
+  if (tenant?.communityId && !tenant.isOwner) query = query.eq("community_id", tenant.communityId);
+  const { data, error } = await query.select("id").maybeSingle();
 
   if (error) throw new Error(`Expense update failed: ${error.message}`);
   if (!data) throw new Error("Expense was not found or could not be updated.");

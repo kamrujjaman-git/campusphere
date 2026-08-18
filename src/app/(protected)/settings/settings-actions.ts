@@ -123,3 +123,63 @@ export async function updateWeeklyAmount(amount: number) {
 
   revalidatePath("/settings");
 }
+
+export async function regenerateCommunityKey() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) throw new Error("Not authenticated");
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role, community_id")
+    .eq("id", user.id)
+    .single();
+
+  if (profile?.role !== "super_admin") {
+    return { success: false, error: "Only super admins can regenerate the community key." };
+  }
+  if (!profile.community_id) {
+    return { success: false, error: "Your profile is not linked to a community." };
+  }
+
+  const { data: community, error: communityError } = await supabase
+    .from("communities")
+    .select("name")
+    .eq("id", profile.community_id)
+    .maybeSingle();
+  if (communityError || !community) {
+    return { success: false, error: "Community could not be found." };
+  }
+
+  const prefix = String(community.name)
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 24) || "COMMUNITY";
+  let generatedKey = "";
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    const candidate = `${prefix}-${Math.floor(1000 + Math.random() * 9000)}`;
+    const { data: existing } = await supabase
+      .from("communities")
+      .select("id")
+      .or(`key.eq.${candidate},community_key.eq.${candidate}`)
+      .maybeSingle();
+    if (!existing) {
+      generatedKey = candidate;
+      break;
+    }
+  }
+  if (!generatedKey) return { success: false, error: "Unable to generate a unique key. Try again." };
+
+  const { error: updateError } = await supabase
+    .from("communities")
+    .update({ key: generatedKey, community_key: generatedKey })
+    .eq("id", profile.community_id);
+  if (updateError) return { success: false, error: `Key regeneration failed: ${updateError.message}` };
+
+  revalidatePath("/settings");
+  return { success: true, key: generatedKey };
+}

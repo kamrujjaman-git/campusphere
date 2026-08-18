@@ -6,6 +6,7 @@ import { EventAdminControls } from "@/components/events/event-admin-controls";
 import { EditEventForm } from "@/components/events/edit-event-form";
 import { DeleteEventButton } from "@/components/events/delete-event-button";
 import type { RsvpStatus } from "@/types/event";
+import { getTenantContext } from "@/lib/supabase/tenant";
 
 export default async function EventDetailPage({
   params,
@@ -14,6 +15,8 @@ export default async function EventDetailPage({
 }) {
   const { id } = await params;
   const supabase = await createClient();
+  const tenant = await getTenantContext(supabase);
+  if (!tenant) return null;
 
   const {
     data: { user },
@@ -21,7 +24,9 @@ export default async function EventDetailPage({
 
   const [profileResult, eventResult] = await Promise.all([
     supabase.from("profiles").select("role").eq("id", user?.id).single(),
-    supabase.from("events").select("*").eq("id", id).single(),
+    tenant.isOwner || !tenant.communityId
+      ? supabase.from("events").select("*").eq("id", id).single()
+      : supabase.from("events").select("*").eq("id", id).eq("community_id", tenant.communityId).single(),
   ]);
 
   const myProfile = profileResult.data;

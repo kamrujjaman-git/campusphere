@@ -4,6 +4,7 @@ import { MemberRoleControl } from "@/components/members/member-role-control";
 import { DeleteMemberButton } from "@/components/members/delete-member-button";
 import { AvatarDisplay } from "@/components/members/avatar-display";
 import { RoleBadge } from "@/components/members/role-badge";
+import { getTenantContext } from "@/lib/supabase/tenant";
 
 export default async function MemberProfilePage({
   params,
@@ -12,6 +13,8 @@ export default async function MemberProfilePage({
 }) {
   const { id } = await params;
   const supabase = await createClient();
+  const tenant = await getTenantContext(supabase);
+  if (!tenant) return null;
 
   const {
     data: { user: currentUser },
@@ -26,11 +29,12 @@ export default async function MemberProfilePage({
   const canManage =
     currentProfile?.role === "super_admin" || currentProfile?.role === "admin";
 
-  const { data: profile } = await supabase
+  let profileQuery = supabase
     .from("profiles")
     .select("*")
-    .eq("id", id)
-    .single();
+    .eq("id", id);
+  if (tenant.communityId && !tenant.isOwner) profileQuery = profileQuery.eq("community_id", tenant.communityId);
+  const { data: profile } = await profileQuery.single();
 
   if (!profile) notFound();
 
@@ -41,12 +45,20 @@ export default async function MemberProfilePage({
     currentProfile?.role === "treasurer";
 
   const { data: contributions } = canViewFinancials
-    ? await supabase
-      .from("contributions")
-      .select("*")
-      .eq("user_id", id)
-      .order("created_at", { ascending: false })
-      .limit(10)
+    ? await (tenant.isOwner || !tenant.communityId
+      ? supabase
+        .from("contributions")
+        .select("*")
+        .eq("user_id", id)
+        .order("created_at", { ascending: false })
+        .limit(10)
+      : supabase
+        .from("contributions")
+        .select("*")
+        .eq("user_id", id)
+        .eq("community_id", tenant.communityId)
+        .order("created_at", { ascending: false })
+        .limit(10))
     : { data: null };
 
   const totalPaid =

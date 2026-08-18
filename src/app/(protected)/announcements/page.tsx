@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { AddAnnouncementForm } from "@/components/announcements/add-announcement-form";
 import { AnnouncementCard } from "@/components/announcements/announcement-card";
 import type { Announcement } from "@/types/announcement";
+import { getTenantContext } from "@/lib/supabase/tenant";
 
 export default async function AnnouncementsPage() {
   const supabase = await createClient();
@@ -9,10 +10,13 @@ export default async function AnnouncementsPage() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  const tenant = await getTenantContext(supabase);
+  if (!tenant) return null;
+  const communityFilter = <T,>(query: T): T => tenant.isOwner || !tenant.communityId ? query : (query as { eq: (field: string, value: string) => T }).eq("community_id", tenant.communityId);
 
   const [profileResult, announcementsResult] = await Promise.all([
     supabase.from("profiles").select("role").eq("id", user?.id).single(),
-    supabase.from("announcements").select("*").order("created_at", { ascending: false }),
+    communityFilter(supabase.from("announcements").select("*").order("created_at", { ascending: false })),
   ]);
 
   const myProfile = profileResult.data;
@@ -34,10 +38,10 @@ export default async function AnnouncementsPage() {
 
   let authorsMap: Record<string, string> = {};
   if (authorIds.length > 0) {
-    const { data: profiles } = await supabase
+    const { data: profiles } = await communityFilter(supabase
       .from("profiles")
       .select("id, full_name")
-      .in("id", authorIds);
+      .in("id", authorIds));
 
     authorsMap = Object.fromEntries(
       (profiles ?? []).map((p) => [p.id, p.full_name ?? "Unknown"])
