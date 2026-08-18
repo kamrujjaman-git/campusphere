@@ -14,26 +14,21 @@ export default async function FinancePage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { data: myProfile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user?.id)
-    .single();
+  const [profileResult, contributionsResult, expensesResult] = await Promise.all([
+    supabase.from("profiles").select("role").eq("id", user?.id).single(),
+    supabase.from("contributions").select("*").order("created_at", { ascending: false }),
+    supabase.from("expenses").select("*").order("expense_date", { ascending: false }),
+  ]);
+
+  const myProfile = profileResult.data;
 
   const canManage =
     myProfile?.role === "super_admin" ||
     myProfile?.role === "admin" ||
     myProfile?.role === "treasurer";
 
-  const { data: rawContributions } = await supabase
-    .from("contributions")
-    .select("*")
-    .order("created_at", { ascending: false });
-
-  const { data: rawExpenses } = await supabase
-    .from("expenses")
-    .select("*")
-    .order("expense_date", { ascending: false });
+  const rawContributions = contributionsResult.data;
+  const rawExpenses = expensesResult.data;
 
   // Merge profile names manually (avoids relying on PostgREST auto-joins).
   const contributionUserIds = [

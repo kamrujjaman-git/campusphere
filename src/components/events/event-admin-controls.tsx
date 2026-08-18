@@ -6,6 +6,7 @@ import {
   generateEventContributions,
 } from "@/app/(protected)/events/event-actions";
 import type { EventStatus } from "@/types/event";
+import { Dropdown } from "@/components/ui/dropdown";
 
 export function EventAdminControls({
   eventId,
@@ -51,17 +52,14 @@ export function EventAdminControls({
         <label className="text-xs text-muted-foreground block mb-1">
           Event Status
         </label>
-        <select
-          value={status}
-          onChange={(e) => handleStatusChange(e.target.value as EventStatus)}
-          disabled={isPending}
-          className="w-full sm:w-56 px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-        >
-          <option value="upcoming">Upcoming</option>
-          <option value="ongoing">Ongoing</option>
-          <option value="completed">Completed</option>
-          <option value="cancelled">Cancelled</option>
-        </select>
+        <div className="w-full sm:w-56">
+          <Dropdown
+            value={status}
+            onValueChange={(value) => handleStatusChange(value as EventStatus)}
+            options={[{ value: "upcoming", label: "Upcoming" }, { value: "ongoing", label: "Ongoing" }, { value: "completed", label: "Completed" }, { value: "cancelled", label: "Cancelled" }]}
+            aria-label="Event status"
+          />
+        </div>
       </div>
 
       {extraContributionAmount > 0 && (

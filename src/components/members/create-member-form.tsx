@@ -2,6 +2,7 @@
 
 import { useRef, useState, useTransition } from "react";
 import { createMember } from "@/app/(protected)/members/actions";
+import { Dropdown } from "@/components/ui/dropdown";
 import type { UserRole } from "@/types/profile";
 import { Plus, X } from "lucide-react";
 
@@ -104,31 +105,18 @@ export function CreateMemberForm({ requesterRole }: { requesterRole: UserRole })
                                     <label htmlFor="member-role" className="mb-1 block text-xs text-muted-foreground">
                                         Role
                                     </label>
-                                    <select
-                                        id="member-role"
+                                    <Dropdown
                                         name="role"
                                         defaultValue="member"
-                                        className="w-full rounded-lg border border-border bg-secondary px-3 py-2 text-sm"
-                                    >
-                                        <option value="member">Member</option>
-                                        <option value="treasurer">Treasurer</option>
-                                        <option value="admin">Admin</option>
-                                        {canCreateSuperAdmin && <option value="super_admin">Super Admin</option>}
-                                    </select>
+                                        options={[{ value: "member", label: "Member" }, { value: "treasurer", label: "Treasurer" }, { value: "admin", label: "Admin" }, ...(canCreateSuperAdmin ? [{ value: "super_admin", label: "Super Admin" }] : [])]}
+                                        aria-label="Member role"
+                                    />
                                 </div>
                                 <div>
                                     <label htmlFor="member-status" className="mb-1 block text-xs text-muted-foreground">
                                         Status
                                     </label>
-                                    <select
-                                        id="member-status"
-                                        name="status"
-                                        defaultValue="active"
-                                        className="w-full rounded-lg border border-border bg-secondary px-3 py-2 text-sm"
-                                    >
-                                        <option value="active">Active</option>
-                                        <option value="inactive">Inactive</option>
-                                    </select>
+                                    <Dropdown name="status" defaultValue="active" options={[{ value: "active", label: "Active" }, { value: "inactive", label: "Inactive" }]} aria-label="Member status" />
                                 </div>
                             </div>
 

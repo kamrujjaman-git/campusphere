@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { updateEvent } from "@/app/(protected)/events/event-actions";
+import { Dropdown } from "@/components/ui/dropdown";
 import type { Event } from "@/types/event";
 import { Pencil, X } from "lucide-react";
 
@@ -37,7 +38,7 @@ export function EditEventForm({ event }: { event: Event }) {
                         <form action={handleSubmit} className="space-y-4">
                             <label className="block text-sm"><span className="mb-1 block text-xs text-muted-foreground">Title</span><input name="title" required defaultValue={event.title} className="w-full rounded-lg border border-border bg-secondary px-3 py-2" /></label>
                             <div className="grid gap-4 sm:grid-cols-2">
-                                <label className="block text-sm"><span className="mb-1 block text-xs text-muted-foreground">Type</span><select name="type" defaultValue={event.type} className="w-full rounded-lg border border-border bg-secondary px-3 py-2"><option value="sports">Sports</option><option value="tour">Tour</option></select></label>
+                                <label className="block text-sm"><span className="mb-1 block text-xs text-muted-foreground">Type</span><Dropdown name="type" defaultValue={event.type} options={[{ value: "sports", label: "Sports" }, { value: "tour", label: "Tour" }]} aria-label="Event type" /></label>
                                 <label className="block text-sm"><span className="mb-1 block text-xs text-muted-foreground">Date</span><input name="event_date" type="date" defaultValue={event.event_date ?? ""} className="w-full rounded-lg border border-border bg-secondary px-3 py-2" /></label>
                             </div>
                             <label className="block text-sm"><span className="mb-1 block text-xs text-muted-foreground">Venue</span><input name="venue" defaultValue={event.venue ?? ""} className="w-full rounded-lg border border-border bg-secondary px-3 py-2" /></label>

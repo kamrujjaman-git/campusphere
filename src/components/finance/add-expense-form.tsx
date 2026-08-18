@@ -2,6 +2,7 @@
 
 import { useState, useRef, useTransition } from "react";
 import { createExpense } from "@/app/(protected)/finance/expense-actions";
+import { Dropdown } from "@/components/ui/dropdown";
 import { Plus, X, Paperclip } from "lucide-react";
 
 const categories = [
@@ -71,17 +72,7 @@ export function AddExpenseForm() {
             <label className="text-xs text-muted-foreground block mb-1">
               Category
             </label>
-            <select
-              name="category"
-              required
-              className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-            >
-              {categories.map((c) => (
-                <option key={c.value} value={c.value}>
-                  {c.label}
-                </option>
-              ))}
-            </select>
+            <Dropdown name="category" options={categories} aria-label="Expense category" />
           </div>
           <div>
             <label className="text-xs text-muted-foreground block mb-1">

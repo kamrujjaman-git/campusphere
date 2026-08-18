@@ -14,31 +14,29 @@ export default async function DashboardPage() {
 
   if (!user) redirect("/login");
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("full_name, role")
-    .eq("id", user.id)
-    .single();
+  const [profileResult, paidContributionsResult, expensesResult, myContributionsResult, memberCountResult, upcomingEventsResult, dueMembersResult] = await Promise.all([
+    supabase.from("profiles").select("full_name, role").eq("id", user.id).single(),
+    supabase.from("contributions").select("amount").eq("status", "paid"),
+    supabase.from("expenses").select("amount"),
+    supabase.from("contributions").select("amount, status").eq("user_id", user.id),
+    supabase.from("profiles").select("*", { count: "exact", head: true }).eq("status", "active"),
+    supabase.from("events").select("*", { count: "exact", head: true }).eq("status", "upcoming"),
+    supabase.from("contributions").select("*", { count: "exact", head: true }).eq("status", "due"),
+  ]);
 
-  // Total Fund = all paid contributions minus all expenses — visible to everyone.
-  const { data: paidContributions } = await supabase
-    .from("contributions")
-    .select("amount")
-    .eq("status", "paid");
-
-  const { data: expenses } = await supabase.from("expenses").select("amount");
+  const profile = profileResult.data;
+  const paidContributions = paidContributionsResult.data;
+  const expenses = expensesResult.data;
+  const myContributions = myContributionsResult.data;
+  const memberCount = memberCountResult.count;
+  const upcomingEventsCount = upcomingEventsResult.count;
+  const dueMembersCount = dueMembersResult.count;
 
   const totalCollected =
     paidContributions?.reduce((sum, c) => sum + Number(c.amount), 0) ?? 0;
   const totalExpense =
     expenses?.reduce((sum, e) => sum + Number(e.amount), 0) ?? 0;
   const totalFund = totalCollected - totalExpense;
-
-  // My own due/paid.
-  const { data: myContributions } = await supabase
-    .from("contributions")
-    .select("amount, status")
-    .eq("user_id", user.id);
 
   const myPaid =
     myContributions
@@ -48,22 +46,6 @@ export default async function DashboardPage() {
     myContributions
       ?.filter((c) => c.status === "due")
       .reduce((sum, c) => sum + Number(c.amount), 0) ?? 0;
-
-  // Quick stats.
-  const { count: memberCount } = await supabase
-    .from("profiles")
-    .select("*", { count: "exact", head: true })
-    .eq("status", "active");
-
-  const { count: upcomingEventsCount } = await supabase
-    .from("events")
-    .select("*", { count: "exact", head: true })
-    .eq("status", "upcoming");
-
-  const { count: dueMembersCount } = await supabase
-    .from("contributions")
-    .select("*", { count: "exact", head: true })
-    .eq("status", "due");
 
   return (
     <div className="space-y-6">

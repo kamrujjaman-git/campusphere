@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { updateExpense } from "@/app/(protected)/finance/expense-actions";
+import { Dropdown } from "@/components/ui/dropdown";
 import type { Expense } from "@/types/expense";
 import { Pencil, X } from "lucide-react";
 
@@ -57,9 +58,7 @@ export function EditExpenseForm({ expense }: { expense: Expense }) {
                             </label>
                             <label className="block text-sm">
                                 <span className="mb-1 block text-xs text-muted-foreground">Category</span>
-                                <select name="category" defaultValue={expense.category} className="w-full rounded-lg border border-border bg-secondary px-3 py-2">
-                                    {categories.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-                                </select>
+                                <Dropdown name="category" defaultValue={expense.category} options={categories.map(([value, label]) => ({ value, label }))} aria-label="Expense category" />
                             </label>
                             <label className="block text-sm">
                                 <span className="mb-1 block text-xs text-muted-foreground">Amount</span>

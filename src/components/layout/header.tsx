@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { SignOutButton } from "@/components/layout/sign-out-button";
+import { ThemeToggle } from "@/components/layout/theme-toggle";
 
 export function Header({
   userName,
@@ -35,6 +36,7 @@ export function Header({
             {userEmail}
           </p>
         </div>
+        <ThemeToggle />
         <div className="w-9 h-9 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold text-sm">
           {initial}
         </div>

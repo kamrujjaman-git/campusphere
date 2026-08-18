@@ -10,20 +10,17 @@ export default async function EventsPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { data: myProfile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user?.id)
-    .single();
+  const [profileResult, eventsResult] = await Promise.all([
+    supabase.from("profiles").select("role").eq("id", user?.id).single(),
+    supabase.from("events").select("*").order("event_date", { ascending: true, nullsFirst: false }).order("created_at", { ascending: false }),
+  ]);
+
+  const myProfile = profileResult.data;
 
   const canManage =
     myProfile?.role === "super_admin" || myProfile?.role === "admin";
 
-  const { data: events } = await supabase
-    .from("events")
-    .select("*")
-    .order("event_date", { ascending: true, nullsFirst: false })
-    .order("created_at", { ascending: false });
+  const events = eventsResult.data;
 
   // Get "going" counts per event.
   const eventIds = (events ?? []).map((e) => e.id);

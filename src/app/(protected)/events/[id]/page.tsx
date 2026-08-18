@@ -19,35 +19,27 @@ export default async function EventDetailPage({
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { data: myProfile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user?.id)
-    .single();
+  const [profileResult, eventResult] = await Promise.all([
+    supabase.from("profiles").select("role").eq("id", user?.id).single(),
+    supabase.from("events").select("*").eq("id", id).single(),
+  ]);
+
+  const myProfile = profileResult.data;
 
   const canManage =
     myProfile?.role === "super_admin" || myProfile?.role === "admin";
 
-  const { data: event } = await supabase
-    .from("events")
-    .select("*")
-    .eq("id", id)
-    .single();
+  const event = eventResult.data;
 
   if (!event) notFound();
 
-  const { data: myRsvp } = await supabase
-    .from("event_participants")
-    .select("rsvp_status")
-    .eq("event_id", id)
-    .eq("user_id", user?.id)
-    .single();
+  const [myRsvpResult, participantsResult] = await Promise.all([
+    supabase.from("event_participants").select("rsvp_status").eq("event_id", id).eq("user_id", user?.id).maybeSingle(),
+    supabase.from("event_participants").select("user_id, rsvp_status").eq("event_id", id).eq("rsvp_status", "going"),
+  ]);
 
-  const { data: participants } = await supabase
-    .from("event_participants")
-    .select("user_id, rsvp_status")
-    .eq("event_id", id)
-    .eq("rsvp_status", "going");
+  const myRsvp = myRsvpResult.data;
+  const participants = participantsResult.data;
 
   let goingNames: string[] = [];
   if (participants && participants.length > 0) {

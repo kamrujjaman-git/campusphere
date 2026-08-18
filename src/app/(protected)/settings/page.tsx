@@ -12,19 +12,16 @@ export default async function SettingsPage() {
 
   if (!user) redirect("/login");
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("full_name, batch, phone, role")
-    .eq("id", user.id)
-    .single();
+  const [profileResult, settingsResult] = await Promise.all([
+    supabase.from("profiles").select("full_name, batch, phone, role").eq("id", user.id).single(),
+    supabase.from("app_settings").select("weekly_contribution_amount").eq("id", 1).single(),
+  ]);
+
+  const profile = profileResult.data;
 
   const isAdmin = profile?.role === "super_admin";
 
-  const { data: appSettings } = await supabase
-    .from("app_settings")
-    .select("weekly_contribution_amount")
-    .eq("id", 1)
-    .single();
+  const appSettings = settingsResult.data;
 
   return (
     <div className="max-w-xl space-y-6">

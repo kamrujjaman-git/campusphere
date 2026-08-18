@@ -10,21 +10,19 @@ export default async function AnnouncementsPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { data: myProfile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user?.id)
-    .single();
+  const [profileResult, announcementsResult] = await Promise.all([
+    supabase.from("profiles").select("role").eq("id", user?.id).single(),
+    supabase.from("announcements").select("*").order("created_at", { ascending: false }),
+  ]);
+
+  const myProfile = profileResult.data;
 
   const canManage =
     myProfile?.role === "super_admin" ||
     myProfile?.role === "admin" ||
     myProfile?.role === "treasurer";
 
-  const { data: rawAnnouncements } = await supabase
-    .from("announcements")
-    .select("*")
-    .order("created_at", { ascending: false });
+  const rawAnnouncements = announcementsResult.data;
 
   const authorIds = [
     ...new Set(

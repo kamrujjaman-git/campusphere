@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { updateMemberRoleStatus } from "@/app/(protected)/members/actions";
 import type { UserRole, UserStatus } from "@/types/profile";
+import { Dropdown } from "@/components/ui/dropdown";
 
 export function MemberRoleControl({
   memberId,
@@ -42,31 +43,23 @@ export function MemberRoleControl({
           <label className="text-xs text-muted-foreground block mb-1">
             Role
           </label>
-          <select
+          <Dropdown
             value={role}
-            onChange={(e) => setRole(e.target.value as UserRole)}
-            className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-          >
-            <option value="member">Member</option>
-            <option value="treasurer">Treasurer</option>
-            <option value="admin">Admin</option>
-            {requesterRole === "super_admin" && (
-              <option value="super_admin">Super Admin</option>
-            )}
-          </select>
+            onValueChange={(value) => setRole(value as UserRole)}
+            options={[{ value: "member", label: "Member" }, { value: "treasurer", label: "Treasurer" }, { value: "admin", label: "Admin" }, ...(requesterRole === "super_admin" ? [{ value: "super_admin", label: "Super Admin" }] : [])]}
+            aria-label="Member role"
+          />
         </div>
         <div className="flex-1">
           <label className="text-xs text-muted-foreground block mb-1">
             Status
           </label>
-          <select
+          <Dropdown
             value={status}
-            onChange={(e) => setStatus(e.target.value as UserStatus)}
-            className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-          >
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
-          </select>
+            onValueChange={(value) => setStatus(value as UserStatus)}
+            options={[{ value: "active", label: "Active" }, { value: "inactive", label: "Inactive" }]}
+            aria-label="Member status"
+          />
         </div>
         <div className="flex items-end">
           <button

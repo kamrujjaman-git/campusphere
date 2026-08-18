@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { ThemeToggle } from "@/components/layout/theme-toggle";
 
 function LoginContent() {
   const searchParams = useSearchParams();
@@ -20,8 +21,11 @@ function LoginContent() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center">
-      <div className="flex flex-col items-center gap-4 p-8">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4 py-10">
+      <div className="pointer-events-none absolute -left-24 top-1/4 h-72 w-72 rounded-full bg-primary/10 blur-3xl" />
+      <div className="pointer-events-none absolute -right-24 bottom-1/4 h-80 w-80 rounded-full bg-blue-400/10 blur-3xl" />
+      <div className="absolute right-5 top-5"><ThemeToggle /></div>
+      <div className="relative flex w-full max-w-md flex-col items-center gap-5 rounded-3xl border border-white/10 bg-card/75 p-8 shadow-2xl shadow-black/20 backdrop-blur-xl sm:p-10">
         <Image
           src="/logo.png"
           alt="PLAYBOYZ logo"
@@ -30,7 +34,7 @@ function LoginContent() {
           className="rounded-2xl mb-1"
           priority
         />
-        <h1 className="text-2xl font-bold">PLAYBOYZ</h1>
+        <h1 className="text-3xl font-black tracking-tight text-primary">PLAYBOYZ</h1>
         <p className="text-sm text-muted-foreground">
           Sign in to continue
         </p>
@@ -44,7 +48,7 @@ function LoginContent() {
         )}
         <button
           onClick={handleGoogleLogin}
-          className="rounded-md border px-6 py-2 font-medium hover:bg-accent"
+          className="w-full rounded-xl bg-primary px-6 py-3 font-semibold text-primary-foreground shadow-lg shadow-primary/10 transition-transform hover:-translate-y-0.5 hover:opacity-90"
         >
           Continue with Google
         </button>

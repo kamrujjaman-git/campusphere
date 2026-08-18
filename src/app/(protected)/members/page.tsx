@@ -9,16 +9,13 @@ export default async function MembersPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { data: currentProfile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user?.id)
-    .maybeSingle();
+  const [currentProfileResult, profilesResult] = await Promise.all([
+    supabase.from("profiles").select("role").eq("id", user?.id).maybeSingle(),
+    supabase.from("profiles").select("*").order("full_name", { ascending: true }),
+  ]);
 
-  const { data: profiles } = await supabase
-    .from("profiles")
-    .select("*")
-    .order("full_name", { ascending: true });
+  const currentProfile = currentProfileResult.data;
+  const profiles = profilesResult.data;
 
   return (
     <div>

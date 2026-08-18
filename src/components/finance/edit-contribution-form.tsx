@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { updateContribution } from "@/app/(protected)/finance/actions";
+import { Dropdown } from "@/components/ui/dropdown";
 import type { Contribution } from "@/types/contribution";
 import { Pencil, X } from "lucide-react";
 
@@ -63,14 +64,12 @@ export function EditContributionForm({
                             </label>
                             <label className="block text-sm">
                                 <span className="mb-1 block text-xs text-muted-foreground">Status</span>
-                                <select
+                                <Dropdown
                                     value={status}
-                                    onChange={(event) => setStatus(event.target.value as "due" | "paid")}
-                                    className="w-full rounded-lg border border-border bg-secondary px-3 py-2"
-                                >
-                                    <option value="due">Due</option>
-                                    <option value="paid">Paid</option>
-                                </select>
+                                    onValueChange={(value) => setStatus(value as "due" | "paid")}
+                                    options={[{ value: "due", label: "Due" }, { value: "paid", label: "Paid" }]}
+                                    aria-label="Contribution status"
+                                />
                             </label>
                             {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
                             <button
