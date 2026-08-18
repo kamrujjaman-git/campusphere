@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { LogOut } from "lucide-react";
 
 export function Header({
@@ -13,8 +14,17 @@ export function Header({
 
   return (
     <header className="sticky top-0 z-30 flex items-center justify-between h-16 px-4 md:px-8 border-b border-border bg-background/80 backdrop-blur-md">
-      <div className="md:hidden font-black text-primary tracking-tight">
-        PLAYBOYZ
+      <div className="md:hidden flex items-center gap-2">
+        <Image
+          src="/logo.png"
+          alt="PLAYBOYZ logo"
+          width={28}
+          height={28}
+          className="rounded-lg"
+        />
+        <span className="font-black text-primary tracking-tight">
+          PLAYBOYZ
+        </span>
       </div>
       <div className="hidden md:block" />
 

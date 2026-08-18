@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
@@ -26,7 +27,14 @@ export function Sidebar() {
 
   return (
     <aside className="hidden md:flex md:flex-col md:w-64 md:fixed md:inset-y-0 border-r border-border bg-card">
-      <div className="flex items-center gap-2 px-6 h-16 border-b border-border">
+      <div className="flex items-center gap-2.5 px-6 h-16 border-b border-border">
+        <Image
+          src="/logo.png"
+          alt="PLAYBOYZ logo"
+          width={32}
+          height={32}
+          className="rounded-lg flex-shrink-0"
+        />
         <span className="text-xl font-black tracking-tight text-primary">
           PLAYBOYZ
         </span>
