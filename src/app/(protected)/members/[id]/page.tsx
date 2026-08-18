@@ -1,9 +1,11 @@
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import { MemberRoleControl } from "@/components/members/member-role-control";
+import { DeleteMemberButton } from "@/components/members/delete-member-button";
 
 const roleLabels: Record<string, string> = {
   super_admin: "Super Admin",
+  admin: "Admin",
   treasurer: "Treasurer",
   member: "Member",
 };
@@ -26,7 +28,8 @@ export default async function MemberProfilePage({
     .eq("id", currentUser?.id)
     .single();
 
-  const isAdmin = currentProfile?.role === "super_admin";
+  const canManage =
+    currentProfile?.role === "super_admin" || currentProfile?.role === "admin";
 
   const { data: profile } = await supabase
     .from("profiles")
@@ -68,11 +71,10 @@ export default async function MemberProfilePage({
               {roleLabels[profile.role]}
             </span>
             <span
-              className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                profile.status === "active"
+              className={`text-xs font-medium px-2 py-0.5 rounded-full ${profile.status === "active"
                   ? "bg-green-500/15 text-green-400"
                   : "bg-secondary text-muted-foreground"
-              }`}
+                }`}
             >
               {profile.status === "active" ? "Active" : "Inactive"}
             </span>
@@ -120,11 +122,10 @@ export default async function MemberProfilePage({
                 <div className="flex items-center gap-3">
                   <span className="font-medium">৳{c.amount}</span>
                   <span
-                    className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                      c.status === "paid"
+                    className={`text-xs font-medium px-2 py-0.5 rounded-full ${c.status === "paid"
                         ? "bg-green-500/15 text-green-400"
                         : "bg-yellow-500/15 text-yellow-400"
-                    }`}
+                      }`}
                   >
                     {c.status === "paid" ? "Paid" : "Due"}
                   </span>
@@ -139,12 +140,20 @@ export default async function MemberProfilePage({
         )}
       </div>
 
-      {isAdmin && (
-        <MemberRoleControl
-          memberId={profile.id}
-          currentRole={profile.role}
-          currentStatus={profile.status}
-        />
+      {canManage && (
+        <div className="space-y-4">
+          <MemberRoleControl
+            memberId={profile.id}
+            currentRole={profile.role}
+            currentStatus={profile.status}
+            requesterRole={currentProfile.role}
+          />
+          <DeleteMemberButton
+            memberId={profile.id}
+            targetRole={profile.role}
+            requesterRole={currentProfile.role}
+          />
+        </div>
       )}
     </div>
   );

@@ -18,8 +18,8 @@ async function requireAdmin() {
     .eq("id", user.id)
     .single();
 
-  if (profile?.role !== "super_admin" && profile?.role !== "treasurer") {
-    throw new Error("Only admins or treasurers can do this.");
+  if (profile?.role !== "super_admin" && profile?.role !== "admin") {
+    throw new Error("Only super admins and admins can manage events.");
   }
 
   return { supabase, userId: user.id };
@@ -56,6 +56,75 @@ export async function createEvent(formData: FormData) {
   if (error) throw new Error(error.message);
 
   revalidatePath("/events");
+}
+
+export async function updateEvent(eventId: string, formData: FormData) {
+  const { supabase } = await requireAdmin();
+  const title = String(formData.get("title") ?? "").trim();
+  const type = String(formData.get("type") ?? "") as EventType;
+  const description = String(formData.get("description") ?? "").trim();
+  const eventDate = String(formData.get("event_date") ?? "");
+  const venue = String(formData.get("venue") ?? "").trim();
+  const budget = Number(formData.get("budget"));
+  const extraContribution = Number(formData.get("extra_contribution_amount"));
+  const validStatuses = ["sports", "tour"];
+
+  if (!title || !validStatuses.includes(type)) {
+    throw new Error("Event title and type are required.");
+  }
+  if (!Number.isFinite(budget) || budget < 0 || !Number.isFinite(extraContribution) || extraContribution < 0) {
+    throw new Error("Budget values must be valid non-negative numbers.");
+  }
+
+  const { data, error } = await supabase
+    .from("events")
+    .update({
+      title,
+      type,
+      description: description || null,
+      event_date: eventDate || null,
+      venue: venue || null,
+      budget,
+      extra_contribution_amount: extraContribution,
+    })
+    .eq("id", eventId)
+    .select("id")
+    .maybeSingle();
+
+  if (error) throw new Error(`Event update failed: ${error.message}`);
+  if (!data) throw new Error("Event was not found or could not be updated.");
+
+  revalidatePath("/events");
+  revalidatePath(`/events/${eventId}`);
+}
+
+export async function deleteEvent(eventId: string) {
+  const { supabase } = await requireAdmin();
+
+  const { error: participantError } = await supabase
+    .from("event_participants")
+    .delete()
+    .eq("event_id", eventId);
+  if (participantError) throw new Error(`Event RSVP cleanup failed: ${participantError.message}`);
+
+  const { error: contributionError } = await supabase
+    .from("contributions")
+    .delete()
+    .eq("event_id", eventId);
+  if (contributionError) throw new Error(`Event contribution cleanup failed: ${contributionError.message}`);
+
+  const { data, error } = await supabase
+    .from("events")
+    .delete()
+    .eq("id", eventId)
+    .select("id")
+    .maybeSingle();
+
+  if (error) throw new Error(`Event deletion failed: ${error.message}`);
+  if (!data) throw new Error("Event was not found or could not be deleted.");
+
+  revalidatePath("/events");
+  revalidatePath("/finance");
 }
 
 export async function updateEventStatus(eventId: string, status: EventStatus) {

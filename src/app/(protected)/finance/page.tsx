@@ -21,7 +21,9 @@ export default async function FinancePage() {
     .single();
 
   const canManage =
-    myProfile?.role === "super_admin" || myProfile?.role === "treasurer";
+    myProfile?.role === "super_admin" ||
+    myProfile?.role === "admin" ||
+    myProfile?.role === "treasurer";
 
   const { data: rawContributions } = await supabase
     .from("contributions")

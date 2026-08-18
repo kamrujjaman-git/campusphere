@@ -1,4 +1,4 @@
-export type UserRole = "super_admin" | "treasurer" | "member";
+export type UserRole = "super_admin" | "admin" | "treasurer" | "member";
 export type UserStatus = "active" | "inactive";
 
 export interface Profile {

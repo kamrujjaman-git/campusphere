@@ -8,10 +8,12 @@ export function MemberRoleControl({
   memberId,
   currentRole,
   currentStatus,
+  requesterRole,
 }: {
   memberId: string;
   currentRole: UserRole;
   currentStatus: UserStatus;
+  requesterRole: UserRole;
 }) {
   const [role, setRole] = useState(currentRole);
   const [status, setStatus] = useState(currentStatus);
@@ -47,7 +49,10 @@ export function MemberRoleControl({
           >
             <option value="member">Member</option>
             <option value="treasurer">Treasurer</option>
-            <option value="super_admin">Super Admin</option>
+            <option value="admin">Admin</option>
+            {requesterRole === "super_admin" && (
+              <option value="super_admin">Super Admin</option>
+            )}
           </select>
         </div>
         <div className="flex-1">

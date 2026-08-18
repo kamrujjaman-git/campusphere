@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { CalendarDays, MapPin, Wallet } from "lucide-react";
 import { RsvpButtons } from "@/components/events/rsvp-buttons";
 import { EventAdminControls } from "@/components/events/event-admin-controls";
+import { EditEventForm } from "@/components/events/edit-event-form";
+import { DeleteEventButton } from "@/components/events/delete-event-button";
 import type { RsvpStatus } from "@/types/event";
 
 export default async function EventDetailPage({
@@ -24,7 +26,7 @@ export default async function EventDetailPage({
     .single();
 
   const canManage =
-    myProfile?.role === "super_admin" || myProfile?.role === "treasurer";
+    myProfile?.role === "super_admin" || myProfile?.role === "admin";
 
   const { data: event } = await supabase
     .from("events")
@@ -130,11 +132,17 @@ export default async function EventDetailPage({
       </div>
 
       {canManage && (
-        <EventAdminControls
-          eventId={event.id}
-          currentStatus={event.status}
-          extraContributionAmount={event.extra_contribution_amount}
-        />
+        <div className="space-y-4">
+          <div className="flex flex-wrap gap-2">
+            <EditEventForm event={event} />
+            <DeleteEventButton eventId={event.id} />
+          </div>
+          <EventAdminControls
+            eventId={event.id}
+            currentStatus={event.status}
+            extraContributionAmount={event.extra_contribution_amount}
+          />
+        </div>
       )}
     </div>
   );

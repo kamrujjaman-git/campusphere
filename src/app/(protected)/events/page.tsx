@@ -17,7 +17,7 @@ export default async function EventsPage() {
     .single();
 
   const canManage =
-    myProfile?.role === "super_admin" || myProfile?.role === "treasurer";
+    myProfile?.role === "super_admin" || myProfile?.role === "admin";
 
   const { data: events } = await supabase
     .from("events")
@@ -67,7 +67,7 @@ export default async function EventsPage() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {eventsWithCounts.map((event) => (
-            <EventCard key={event.id} event={event} />
+            <EventCard key={event.id} event={event} canManage={canManage} />
           ))}
         </div>
       )}

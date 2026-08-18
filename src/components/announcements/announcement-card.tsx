@@ -3,6 +3,7 @@
 import { useTransition } from "react";
 import { deleteAnnouncement } from "@/app/(protected)/announcements/announcement-actions";
 import { Megaphone, Trash2 } from "lucide-react";
+import { EditAnnouncementForm } from "@/components/announcements/edit-announcement-form";
 import type { Announcement } from "@/types/announcement";
 
 export function AnnouncementCard({
@@ -46,13 +47,18 @@ export function AnnouncementCard({
           </div>
         </div>
         {canManage && (
-          <button
-            onClick={handleDelete}
-            disabled={isPending}
-            className="text-muted-foreground hover:text-destructive disabled:opacity-50 flex-shrink-0"
-          >
-            <Trash2 size={14} />
-          </button>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <EditAnnouncementForm announcement={announcement} />
+            <button
+              onClick={handleDelete}
+              disabled={isPending}
+              aria-label="Delete announcement"
+              title="Delete announcement"
+              className="text-muted-foreground hover:text-destructive disabled:opacity-50"
+            >
+              <Trash2 size={14} aria-hidden="true" />
+            </button>
+          </div>
         )}
       </div>
     </div>

@@ -3,6 +3,7 @@ import type { Profile } from "@/types/profile";
 
 const roleLabels: Record<string, string> = {
   super_admin: "Super Admin",
+  admin: "Admin",
   treasurer: "Treasurer",
   member: "Member",
 };
@@ -34,13 +35,12 @@ export function MemberCard({ profile }: { profile: Profile }) {
       </div>
 
       <span
-        className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
-          profile.role === "super_admin"
+        className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${profile.role === "super_admin"
             ? "bg-primary/15 text-primary"
             : profile.role === "treasurer"
-            ? "bg-blue-500/15 text-blue-400"
-            : "bg-secondary text-muted-foreground"
-        }`}
+              ? "bg-blue-500/15 text-blue-400"
+              : "bg-secondary text-muted-foreground"
+          }`}
       >
         {roleLabels[profile.role]}
       </span>

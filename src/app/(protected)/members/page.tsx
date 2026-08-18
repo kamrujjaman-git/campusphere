@@ -5,6 +5,16 @@ import type { Profile } from "@/types/profile";
 export default async function MembersPage() {
   const supabase = await createClient();
 
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { data: currentProfile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user?.id)
+    .maybeSingle();
+
   const { data: profiles } = await supabase
     .from("profiles")
     .select("*")
@@ -19,7 +29,10 @@ export default async function MembersPage() {
         </p>
       </div>
 
-      <MemberDirectory profiles={(profiles as Profile[]) || []} />
+      <MemberDirectory
+        profiles={(profiles as Profile[]) || []}
+        requesterRole={currentProfile?.role}
+      />
     </div>
   );
 }

@@ -17,7 +17,9 @@ export default async function AnnouncementsPage() {
     .single();
 
   const canManage =
-    myProfile?.role === "super_admin" || myProfile?.role === "treasurer";
+    myProfile?.role === "super_admin" ||
+    myProfile?.role === "admin" ||
+    myProfile?.role === "treasurer";
 
   const { data: rawAnnouncements } = await supabase
     .from("announcements")

@@ -3,9 +3,17 @@
 import { useState, useMemo } from "react";
 import { MemberSearch } from "@/components/members/member-search";
 import { MemberCard } from "@/components/members/member-card";
+import { CreateMemberForm } from "@/components/members/create-member-form";
 import type { Profile } from "@/types/profile";
+import type { UserRole } from "@/types/profile";
 
-export function MemberDirectory({ profiles }: { profiles: Profile[] }) {
+export function MemberDirectory({
+  profiles,
+  requesterRole,
+}: {
+  profiles: Profile[];
+  requesterRole?: UserRole;
+}) {
   const [query, setQuery] = useState("");
 
   const filtered = useMemo(() => {
@@ -20,11 +28,16 @@ export function MemberDirectory({ profiles }: { profiles: Profile[] }) {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-6 gap-3">
         <MemberSearch onSearch={setQuery} />
-        <p className="text-sm text-muted-foreground hidden sm:block">
-          {filtered.length} of {profiles.length} members
-        </p>
+        <div className="flex items-center gap-3">
+          <p className="text-sm text-muted-foreground hidden sm:block">
+            {filtered.length} of {profiles.length} members
+          </p>
+          {(requesterRole === "super_admin" || requesterRole === "admin") && (
+            <CreateMemberForm requesterRole={requesterRole} />
+          )}
+        </div>
       </div>
 
       {filtered.length === 0 ? (

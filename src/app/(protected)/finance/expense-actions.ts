@@ -27,7 +27,11 @@ async function requireAdminOrTreasurer() {
     .eq("id", user.id)
     .single();
 
-  if (profile?.role !== "super_admin" && profile?.role !== "treasurer") {
+  if (
+    profile?.role !== "super_admin" &&
+    profile?.role !== "admin" &&
+    profile?.role !== "treasurer"
+  ) {
     throw new Error("Only admins or treasurers can do this.");
   }
 
@@ -129,6 +133,38 @@ export async function deleteExpense(expenseId: string) {
     .eq("id", expenseId);
 
   if (error) throw new Error(error.message);
+
+  revalidatePath("/finance");
+  revalidatePath("/dashboard");
+}
+
+export async function updateExpense(expenseId: string, formData: FormData) {
+  const { supabase } = await requireAdminOrTreasurer();
+  const title = String(formData.get("title") ?? "").trim();
+  const category = String(formData.get("category") ?? "");
+  const amount = Number(formData.get("amount"));
+  const expenseDate = String(formData.get("expense_date") ?? "");
+  const validCategories = ["sports_equipment", "venue", "tour", "misc"];
+
+  if (!title || !validCategories.includes(category)) {
+    throw new Error("Please provide a valid expense title and category.");
+  }
+  if (!Number.isFinite(amount) || amount <= 0) {
+    throw new Error("Expense amount must be greater than zero.");
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(expenseDate)) {
+    throw new Error("Please provide a valid expense date.");
+  }
+
+  const { data, error } = await supabase
+    .from("expenses")
+    .update({ title, category, amount, expense_date: expenseDate })
+    .eq("id", expenseId)
+    .select("id")
+    .maybeSingle();
+
+  if (error) throw new Error(`Expense update failed: ${error.message}`);
+  if (!data) throw new Error("Expense was not found or could not be updated.");
 
   revalidatePath("/finance");
   revalidatePath("/dashboard");

@@ -1,7 +1,8 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { deleteExpense } from "@/app/(protected)/finance/expense-actions";
+import { EditExpenseForm } from "@/components/finance/edit-expense-form";
 import { Paperclip, Trash2 } from "lucide-react";
 import type { Expense } from "@/types/expense";
 
@@ -20,11 +21,17 @@ export function ExpenseList({
   canManage: boolean;
 }) {
   const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
 
   const handleDelete = (id: string) => {
     if (!confirm("Delete this expense?")) return;
+    setError(null);
     startTransition(async () => {
-      await deleteExpense(id);
+      try {
+        await deleteExpense(id);
+      } catch (deleteError) {
+        setError(deleteError instanceof Error ? deleteError.message : "Unable to delete expense.");
+      }
     });
   };
 
@@ -63,19 +70,22 @@ export function ExpenseList({
             <span className="text-sm font-semibold text-destructive">
               ৳{e.amount}
             </span>
+            {canManage && <EditExpenseForm expense={e} />}
             {canManage && (
               <button
                 onClick={() => handleDelete(e.id)}
                 disabled={isPending}
                 className="text-muted-foreground hover:text-destructive disabled:opacity-50"
-                title="Delete"
+                title="Delete expense"
+                aria-label="Delete expense"
               >
-                <Trash2 size={14} />
+                <Trash2 size={14} aria-hidden="true" />
               </button>
             )}
           </div>
         </div>
       ))}
+      {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
     </div>
   );
 }

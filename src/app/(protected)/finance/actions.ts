@@ -17,7 +17,11 @@ async function requireAdminOrTreasurer() {
     .eq("id", user.id)
     .single();
 
-  if (profile?.role !== "super_admin" && profile?.role !== "treasurer") {
+  if (
+    profile?.role !== "super_admin" &&
+    profile?.role !== "admin" &&
+    profile?.role !== "treasurer"
+  ) {
     throw new Error("Only admins or treasurers can do this.");
   }
 
@@ -135,6 +139,57 @@ export async function markContributionDue(contributionId: string) {
     .eq("id", contributionId);
 
   if (error) throw new Error(error.message);
+
+  revalidatePath("/finance");
+  revalidatePath("/dashboard");
+}
+
+export async function updateContribution(
+  contributionId: string,
+  amount: number,
+  status: "due" | "paid"
+) {
+  const { supabase, userId } = await requireAdminOrTreasurer();
+
+  if (!Number.isFinite(amount) || amount <= 0) {
+    throw new Error("Contribution amount must be greater than zero.");
+  }
+
+  if (status !== "due" && status !== "paid") {
+    throw new Error("Invalid contribution status.");
+  }
+
+  const { data, error } = await supabase
+    .from("contributions")
+    .update({
+      amount,
+      status,
+      paid_at: status === "paid" ? new Date().toISOString() : null,
+      marked_by: status === "paid" ? userId : null,
+    })
+    .eq("id", contributionId)
+    .select("id")
+    .maybeSingle();
+
+  if (error) throw new Error(`Contribution update failed: ${error.message}`);
+  if (!data) throw new Error("Contribution was not found or could not be updated.");
+
+  revalidatePath("/finance");
+  revalidatePath("/dashboard");
+}
+
+export async function deleteContribution(contributionId: string) {
+  const { supabase } = await requireAdminOrTreasurer();
+
+  const { data, error } = await supabase
+    .from("contributions")
+    .delete()
+    .eq("id", contributionId)
+    .select("id")
+    .maybeSingle();
+
+  if (error) throw new Error(`Contribution deletion failed: ${error.message}`);
+  if (!data) throw new Error("Contribution was not found or could not be deleted.");
 
   revalidatePath("/finance");
   revalidatePath("/dashboard");
