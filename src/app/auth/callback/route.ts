@@ -10,15 +10,25 @@ export async function GET(request: Request) {
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (!error && data.user) {
-      // Check if a profile row already exists; if not, create one.
-      const { data: existingProfile } = await supabase
+      // Only create a default profile for a first-time user. Never overwrite
+      // fields, including status, on an existing profile during sign-in.
+      const { data: existingProfile, error: profileLookupError } = await supabase
         .from("profiles")
-        .select("id")
+        .select("id, status")
         .eq("id", data.user.id)
         .single();
 
+      if (profileLookupError && profileLookupError.code !== "PGRST116") {
+        return NextResponse.redirect(`${origin}/login?error=profile_lookup_failed`);
+      }
+
+      if (existingProfile?.status === "inactive") {
+        await supabase.auth.signOut();
+        return NextResponse.redirect(`${origin}/login?error=inactive`);
+      }
+
       if (!existingProfile) {
-        await supabase.from("profiles").insert({
+        const { error: profileInsertError } = await supabase.from("profiles").insert({
           id: data.user.id,
           full_name: data.user.user_metadata?.full_name ?? "",
           avatar_url: data.user.user_metadata?.avatar_url ?? "",
@@ -26,6 +36,10 @@ export async function GET(request: Request) {
           status: "active",
           profile_completed: false,
         });
+
+        if (profileInsertError) {
+          return NextResponse.redirect(`${origin}/login?error=profile_creation_failed`);
+        }
       }
 
       return NextResponse.redirect(`${origin}/dashboard`);

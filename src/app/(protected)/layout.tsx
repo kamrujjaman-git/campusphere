@@ -20,9 +20,14 @@ export default async function ProtectedLayout({
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("full_name")
+    .select("full_name, status")
     .eq("id", user.id)
     .single();
+
+  if (profile?.status === "inactive") {
+    await supabase.auth.signOut();
+    redirect("/login?error=inactive");
+  }
 
   return (
     <div className="min-h-screen bg-background">

@@ -17,12 +17,18 @@ export function MemberRoleControl({
   const [status, setStatus] = useState(currentStatus);
   const [isPending, startTransition] = useTransition();
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleSave = () => {
     setSaved(false);
+    setError(null);
     startTransition(async () => {
-      await updateMemberRoleStatus(memberId, role, status);
-      setSaved(true);
+      const result = await updateMemberRoleStatus(memberId, role, status);
+      if (result.success) {
+        setSaved(true);
+      } else {
+        setError(result.error ?? null);
+      }
     });
   };
 
@@ -70,6 +76,7 @@ export function MemberRoleControl({
       {saved && (
         <p className="text-xs text-primary mt-2">Changes saved successfully.</p>
       )}
+      {error && <p className="text-xs text-destructive mt-2">{error}</p>}
     </div>
   );
 }

@@ -49,6 +49,7 @@ export async function createExpense(formData: FormData) {
   }
 
   let receiptUrl: string | null = null;
+  let uploadedReceiptName: string | null = null;
 
   if (receiptEntry && !receiptFile) {
     throw new Error("The receipt upload is invalid.");
@@ -80,6 +81,8 @@ export async function createExpense(formData: FormData) {
       throw new Error(`Receipt upload failed. ${uploadError.message}`);
     }
 
+    uploadedReceiptName = fileName;
+
     const { data: publicUrlData } = supabase.storage
       .from("receipts")
       .getPublicUrl(fileName);
@@ -97,7 +100,21 @@ export async function createExpense(formData: FormData) {
     approved_by: userId,
   });
 
-  if (error) throw new Error(error.message);
+  if (error) {
+    if (uploadedReceiptName) {
+      const { error: cleanupError } = await supabase.storage
+        .from("receipts")
+        .remove([uploadedReceiptName]);
+
+      if (cleanupError) {
+        throw new Error(
+          `Expense save failed: ${error.message} Receipt cleanup also failed: ${cleanupError.message}`
+        );
+      }
+    }
+
+    throw new Error(`Expense save failed: ${error.message}`);
+  }
 
   revalidatePath("/finance");
   revalidatePath("/dashboard");

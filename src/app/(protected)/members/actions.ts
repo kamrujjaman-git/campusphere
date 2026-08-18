@@ -27,13 +27,39 @@ export async function updateMemberRoleStatus(
     throw new Error("Only super admins can update member roles.");
   }
 
-  const { error } = await supabase
+  if (memberId === user.id && (role !== "super_admin" || status === "inactive")) {
+    return {
+      success: false,
+      error: "You cannot demote or deactivate your own super admin account.",
+    };
+  }
+
+  const { data: updatedProfile, error } = await supabase
     .from("profiles")
-    .update({ role, status })
-    .eq("id", memberId);
+    .update({
+      role,
+      status,
+    })
+    .eq("id", memberId)
+    .select("id, status")
+    .maybeSingle();
 
-  if (error) throw new Error(error.message);
+  if (error) {
+    return {
+      success: false,
+      error: `Failed to update profile. Please check Supabase RLS policies. ${error.message}`,
+    };
+  }
 
-  revalidatePath(`/members/${memberId}`);
+  if (!updatedProfile) {
+    return {
+      success: false,
+      error: "Failed to update profile. Please check Supabase RLS policies.",
+    };
+  }
+
   revalidatePath("/members");
+  revalidatePath("/members/[id]", "page");
+  revalidatePath(`/members/${memberId}`);
+  return { success: true };
 }

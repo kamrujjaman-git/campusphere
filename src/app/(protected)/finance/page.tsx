@@ -26,14 +26,12 @@ export default async function FinancePage() {
   const { data: rawContributions } = await supabase
     .from("contributions")
     .select("*")
-    .order("created_at", { ascending: false })
-    .limit(50);
+    .order("created_at", { ascending: false });
 
   const { data: rawExpenses } = await supabase
     .from("expenses")
     .select("*")
-    .order("expense_date", { ascending: false })
-    .limit(50);
+    .order("expense_date", { ascending: false });
 
   // Merge profile names manually (avoids relying on PostgREST auto-joins).
   const contributionUserIds = [
