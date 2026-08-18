@@ -80,6 +80,28 @@ export async function setRsvp(eventId: string, status: RsvpStatus) {
 
   if (!user) throw new Error("Not authenticated");
 
+  if (!["going", "not_going", "pending"].includes(status)) {
+    throw new Error("Invalid RSVP status.");
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("status")
+    .eq("id", user.id)
+    .single();
+
+  if (profile?.status !== "active") {
+    throw new Error("Only active members can RSVP to events.");
+  }
+
+  const { data: event } = await supabase
+    .from("events")
+    .select("id")
+    .eq("id", eventId)
+    .single();
+
+  if (!event) throw new Error("Event not found.");
+
   const { error } = await supabase.from("event_participants").upsert(
     {
       event_id: eventId,
@@ -91,6 +113,7 @@ export async function setRsvp(eventId: string, status: RsvpStatus) {
 
   if (error) throw new Error(error.message);
 
+  revalidatePath("/events");
   revalidatePath(`/events/${eventId}`);
 }
 

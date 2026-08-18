@@ -4,6 +4,15 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import type { ExpenseCategory } from "@/types/expense";
 
+const MAX_RECEIPT_SIZE = 5 * 1024 * 1024;
+const RECEIPT_TYPES: Record<string, string> = {
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  webp: "image/webp",
+  pdf: "application/pdf",
+};
+
 async function requireAdminOrTreasurer() {
   const supabase = await createClient();
   const {
@@ -32,7 +41,8 @@ export async function createExpense(formData: FormData) {
   const category = formData.get("category") as ExpenseCategory;
   const amount = parseFloat(formData.get("amount") as string);
   const expenseDate = formData.get("expense_date") as string;
-  const receiptFile = formData.get("receipt") as File | null;
+  const receiptEntry = formData.get("receipt");
+  const receiptFile = receiptEntry instanceof File ? receiptEntry : null;
 
   if (!title || !category || !amount || amount <= 0) {
     throw new Error("Please fill in all required fields correctly.");
@@ -40,16 +50,34 @@ export async function createExpense(formData: FormData) {
 
   let receiptUrl: string | null = null;
 
-  if (receiptFile && receiptFile.size > 0) {
-    const fileExt = receiptFile.name.split(".").pop();
-    const fileName = `${userId}-${Date.now()}.${fileExt}`;
+  if (receiptEntry && !receiptFile) {
+    throw new Error("The receipt upload is invalid.");
+  }
+
+  if (receiptFile) {
+    if (receiptFile.size === 0) {
+      throw new Error("The receipt file is empty.");
+    }
+
+    if (receiptFile.size > MAX_RECEIPT_SIZE) {
+      throw new Error("The receipt file must be 5 MB or smaller.");
+    }
+
+    const fileExt = receiptFile.name.split(".").pop()?.toLowerCase() ?? "";
+    const expectedType = RECEIPT_TYPES[fileExt];
+
+    if (!expectedType || receiptFile.type !== expectedType) {
+      throw new Error("Receipt must be a JPEG, PNG, WEBP image, or PDF.");
+    }
+
+    const fileName = `${userId}-${crypto.randomUUID()}.${fileExt}`;
 
     const { error: uploadError } = await supabase.storage
       .from("receipts")
       .upload(fileName, receiptFile);
 
     if (uploadError) {
-      throw new Error(`Receipt upload failed: ${uploadError.message}`);
+      throw new Error(`Receipt upload failed. ${uploadError.message}`);
     }
 
     const { data: publicUrlData } = supabase.storage

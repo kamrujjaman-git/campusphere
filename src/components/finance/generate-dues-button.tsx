@@ -14,8 +14,8 @@ export function GenerateWeeklyDuesButton() {
       try {
         const result = await generateWeeklyDues();
         setMessage(
-          result.created > 0
-            ? `Created ${result.created} new due entries.`
+          result.count > 0
+            ? `Created ${result.count} new due entries.`
             : "All members already have this week's due."
         );
       } catch (e) {

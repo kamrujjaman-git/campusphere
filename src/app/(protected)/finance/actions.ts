@@ -3,8 +3,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 
-const WEEKLY_AMOUNT = 50;
-
 async function requireAdminOrTreasurer() {
   const supabase = await createClient();
   const {
@@ -37,46 +35,77 @@ function getMonday(date: Date) {
 // Generates a "due" contribution row for every active member for the current week,
 // skipping members who already have one for this week.
 export async function generateWeeklyDues() {
-  const { supabase } = await requireAdminOrTreasurer();
+  try {
+    const { supabase } = await requireAdminOrTreasurer();
+    const weekStart = getMonday(new Date());
 
-  const weekStart = getMonday(new Date());
+    const { data: appSettings } = await supabase
+      .from("app_settings")
+      .select("weekly_contribution_amount")
+      .eq("id", 1)
+      .maybeSingle();
+    const weeklyAmount = Number(appSettings?.weekly_contribution_amount) || 50;
 
-  const { data: activeMembers } = await supabase
-    .from("profiles")
-    .select("id")
-    .eq("status", "active");
+    const { data: activeMembers, error: activeMembersError } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("status", "active");
 
-  if (!activeMembers || activeMembers.length === 0) {
-    return { created: 0 };
+    if (activeMembersError) {
+      return { success: false, count: 0, error: activeMembersError.message };
+    }
+
+    if (activeMembers.length === 0) {
+      return { success: true, count: 0 };
+    }
+
+    const { data: existing, error: existingError } = await supabase
+      .from("contributions")
+      .select("user_id")
+      .eq("type", "weekly")
+      .eq("week_start_date", weekStart);
+
+    if (existingError) {
+      return { success: false, count: 0, error: existingError.message };
+    }
+
+    const existingUserIds = new Set(existing.map((contribution) => contribution.user_id));
+    const toCreate = activeMembers
+      .filter((member) => !existingUserIds.has(member.id))
+      .map((member) => ({
+        user_id: member.id,
+        type: "weekly" as const,
+        amount: weeklyAmount,
+        week_start_date: weekStart,
+        status: "due" as const,
+      }));
+
+    if (toCreate.length === 0) {
+      return { success: true, count: 0 };
+    }
+
+    const { error: insertError } = await supabase
+      .from("contributions")
+      .insert(toCreate);
+
+    if (insertError) {
+      if (insertError.code === "23505") {
+        return { success: true, count: 0 };
+      }
+
+      return { success: false, count: 0, error: insertError.message };
+    }
+
+    revalidatePath("/finance");
+    revalidatePath("/dashboard");
+    return { success: true, count: toCreate.length };
+  } catch (error) {
+    return {
+      success: false,
+      count: 0,
+      error: error instanceof Error ? error.message : "Unable to generate weekly dues.",
+    };
   }
-
-  const { data: existing } = await supabase
-    .from("contributions")
-    .select("user_id")
-    .eq("type", "weekly")
-    .eq("week_start_date", weekStart);
-
-  const existingUserIds = new Set(existing?.map((e) => e.user_id));
-  const toCreate = activeMembers
-    .filter((m) => !existingUserIds.has(m.id))
-    .map((m) => ({
-      user_id: m.id,
-      type: "weekly" as const,
-      amount: WEEKLY_AMOUNT,
-      week_start_date: weekStart,
-      status: "due" as const,
-    }));
-
-  if (toCreate.length === 0) {
-    return { created: 0 };
-  }
-
-  const { error } = await supabase.from("contributions").insert(toCreate);
-  if (error) throw new Error(error.message);
-
-  revalidatePath("/finance");
-  revalidatePath("/dashboard");
-  return { created: toCreate.length };
 }
 
 export async function markContributionPaid(contributionId: string) {
