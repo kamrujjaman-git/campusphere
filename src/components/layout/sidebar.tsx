@@ -34,7 +34,7 @@ export function Sidebar({
 }) {
   const pathname = usePathname();
   const visibleNavItems = isPlatformOwner(userEmail)
-    ? [...navItems, { href: "/owner", label: "Global Management", icon: Settings }]
+    ? [...navItems, { href: "/owner", label: "Manage Communities", icon: Settings }]
     : navItems;
 
   return (

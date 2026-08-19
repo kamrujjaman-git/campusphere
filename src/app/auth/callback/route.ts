@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
 import {
   MAX_ACTIVE_COMMUNITIES,
@@ -30,6 +31,41 @@ export async function GET(request: Request) {
 
       if (ownerBypass) {
         return NextResponse.redirect(new URL("/owner", request.url));
+      }
+
+      const normalizedEmail = (data.user.email ?? "").trim().toLowerCase();
+      const adminClient = createAdminClient();
+      const { data: pendingInvite } = await adminClient
+        .from("community_admin_invites")
+        .select("id, community_id")
+        .eq("email", normalizedEmail)
+        .eq("status", "pending")
+        .maybeSingle();
+
+      if (pendingInvite) {
+        const { data: invitedCommunity } = await adminClient
+          .from("communities")
+          .select("id, status")
+          .eq("id", pendingInvite.community_id)
+          .eq("status", "active")
+          .maybeSingle();
+        if (invitedCommunity) {
+          const { error: inviteProfileError } = await adminClient.from("profiles").upsert({
+            id: data.user.id,
+            full_name: data.user.user_metadata?.full_name ?? "",
+            avatar_url: data.user.user_metadata?.avatar_url ?? "",
+            community_id: invitedCommunity.id,
+            role: "super_admin",
+            status: "active",
+            profile_completed: false,
+          });
+          if (inviteProfileError) {
+            await supabase.auth.signOut();
+            return loginRedirect("profile_update_failed");
+          }
+          await adminClient.from("community_admin_invites").update({ status: "accepted" }).eq("id", pendingInvite.id);
+          return NextResponse.redirect(`${origin}/dashboard`);
+        }
       }
 
       const emailValidation = validateUniversityEmail(data.user.email ?? "");

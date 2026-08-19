@@ -18,13 +18,33 @@ export default async function OwnerPage() {
         .order("created_at", { ascending: false });
     if (error) throw new Error(`Unable to load communities: ${error.message}`);
 
+    const { data: adminProfiles } = await adminClient
+        .from("profiles")
+        .select("id, community_id")
+        .eq("role", "super_admin");
+    const { data: authUsers } = await adminClient.auth.admin.listUsers({ page: 1, perPage: 1000 });
+    const authEmailById = new Map((authUsers?.users ?? []).map((authUser) => [authUser.id, authUser.email ?? ""]));
+    const adminEmailByCommunity = new Map(
+        (adminProfiles ?? []).map((profile) => [profile.community_id, authEmailById.get(profile.id) ?? ""]),
+    );
+
     const withStats = await Promise.all(
         (communities ?? []).map(async (community) => {
             const { count } = await adminClient
                 .from("profiles")
                 .select("id", { count: "exact", head: true })
                 .eq("community_id", community.id);
-            return { ...community, totalMembers: count ?? 0 };
+            const { data: pendingInvite } = await adminClient
+                .from("community_admin_invites")
+                .select("email")
+                .eq("community_id", community.id)
+                .eq("status", "pending")
+                .maybeSingle();
+            return {
+                ...community,
+                totalMembers: count ?? 0,
+                assignedAdminEmail: adminEmailByCommunity.get(community.id) ?? pendingInvite?.email ?? "",
+            };
         })
     );
 

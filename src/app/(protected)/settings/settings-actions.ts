@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { isPlatformOwner } from "@/lib/community-validation";
+import { isValidUuid } from "@/lib/utils";
 
 const MAX_AVATAR_SIZE = 2 * 1024 * 1024;
 const AVATAR_TYPES = new Set(["image/jpeg", "image/png"]);
@@ -139,30 +140,33 @@ async function requireAdmin() {
 
   if (!user) throw new Error("Not authenticated");
 
+  const owner = isPlatformOwner(user.email);
   const { data: profile } = await supabase
     .from("profiles")
     .select("role, community_id")
     .eq("id", user.id)
-    .single();
+    .maybeSingle();
 
-  if (profile?.role !== "super_admin" || !profile.community_id) {
+  if (!owner && (profile?.role !== "super_admin" || !profile.community_id)) {
     throw new Error("Only super admins can change this.");
   }
 
-  return { supabase, communityId: profile.community_id };
+  return { supabase, communityId: profile?.community_id ?? null, isOwner: owner };
 }
 
 export async function updateWeeklyAmount(amount: number) {
-  const { supabase, communityId } = await requireAdmin();
+  const { supabase, communityId, isOwner } = await requireAdmin();
 
   if (!amount || amount <= 0) {
     throw new Error("Enter a valid amount.");
   }
 
-  const { error } = await supabase
+  let query = supabase
     .from("app_settings")
-    .update({ weekly_contribution_amount: amount, updated_at: new Date().toISOString() })
-    .eq("community_id", communityId);
+    .update({ weekly_contribution_amount: amount, updated_at: new Date().toISOString() });
+  if (communityId) query = query.eq("community_id", communityId);
+  else if (!isOwner) throw new Error("Your profile is not linked to a community.");
+  const { error } = await query;
 
   if (error) throw new Error(error.message);
 
@@ -170,7 +174,10 @@ export async function updateWeeklyAmount(amount: number) {
 }
 
 export async function updateCommunityBranding(formData: FormData) {
-  const { supabase, communityId } = await requireAdmin();
+  const { supabase, communityId: profileCommunityId, isOwner } = await requireAdmin();
+  const requestedCommunityId = String(formData.get("community_id") ?? "").trim();
+  const communityId = isOwner ? requestedCommunityId || profileCommunityId : profileCommunityId;
+  if (!communityId || !isValidUuid(communityId)) throw new Error("A valid community is required.");
   const name = String(formData.get("name") ?? "").trim();
   const logoEntry = formData.get("logo");
   const faviconEntry = formData.get("favicon");
