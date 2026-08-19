@@ -24,7 +24,7 @@ export default function ProtectedError({
                     This page hit a snag
                 </h1>
                 <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                    We could not load this part of PLAYBOYZ. Try again and we will take
+                    We could not load this part of Campusphere. Try again and we will take
                     another look.
                 </p>
                 <button

@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "PLAYBOYZ",
-  description: "Community management for PLAYBOYZ — members, finance, events.",
+  title: "Campusphere",
+  description: "Community management for Campusphere — members, finance, events.",
   icons: {
     icon: [
       { url: "/favicon.ico" },

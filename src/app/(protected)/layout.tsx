@@ -15,7 +15,7 @@ export async function generateMetadata(): Promise<Metadata> {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) return { title: "PLAYBOYZ" };
+  if (!user) return { title: "Campusphere" };
 
   if (isPlatformOwner(user.email)) {
     return { title: "Platform Owner" };
@@ -26,7 +26,7 @@ export async function generateMetadata(): Promise<Metadata> {
     .select("community_id")
     .eq("id", user.id)
     .maybeSingle();
-  if (!profile?.community_id) return { title: "PLAYBOYZ" };
+  if (!profile?.community_id) return { title: "Campusphere" };
 
   const { data: community } = await supabase
     .from("communities")
@@ -35,7 +35,7 @@ export async function generateMetadata(): Promise<Metadata> {
     .maybeSingle();
 
   return {
-    title: community?.name || "PLAYBOYZ",
+    title: community?.name || "Campusphere",
     icons: { icon: community?.favicon_url || DEFAULT_FAVICON },
   };
 }
@@ -90,7 +90,7 @@ export default async function ProtectedLayout({
       .maybeSingle()
     : { data: null };
 
-  const communityName = community?.name || "PLAYBOYZ";
+  const communityName = community?.name || "Campusphere";
   const communityLogo = community?.logo_url || DEFAULT_LOGO;
 
   return (

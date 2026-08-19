@@ -69,7 +69,7 @@ export default async function DashboardPage() {
           {profile?.role && <RoleBadge role={profile.role} />}
         </div>
         <p className="text-sm text-muted-foreground mt-1">
-          Here&apos;s what&apos;s happening in PLAYBOYZ.
+          Here&apos;s what&apos;s happening in Campusphere.
         </p>
       </div>
 

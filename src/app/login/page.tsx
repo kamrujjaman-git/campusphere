@@ -57,14 +57,14 @@ function LoginContent() {
       <div className="relative flex w-full max-w-md flex-col items-center gap-5 rounded-3xl border border-white/10 bg-card/75 p-8 shadow-2xl shadow-black/20 backdrop-blur-xl sm:p-10">
         <Image
           src="/logo.png"
-          alt="PLAYBOYZ logo"
+          alt="Campusphere logo"
           width={88}
           height={88}
           className="rounded-2xl mb-1"
           priority
         />
-        <h1 className="text-3xl font-black tracking-tight text-primary">PLAYBOYZ</h1>
-        <p className="text-sm text-muted-foreground">Access your PLAYBOYZ community</p>
+        <h1 className="text-3xl font-black tracking-tight text-primary">Campusphere</h1>
+        <p className="text-sm text-muted-foreground">Access your Campusphere community</p>
         <div className="grid w-full grid-cols-3 rounded-xl border border-border bg-secondary p-1">
           {[["signin", "Sign In"], ["join", "Join Community"], ["create", "Create Community"]].map(([value, label]) => (
             <button key={value} type="button" onClick={() => changeMode(value as typeof mode)} className={`rounded-lg px-2 py-2 text-xs font-semibold transition-colors ${mode === value ? "bg-card text-primary shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>

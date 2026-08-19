@@ -29,7 +29,7 @@ export default async function MembersPage() {
       <div className="mb-6">
         <h1 className="text-2xl font-bold">Members</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Everyone in the PLAYBOYZ community.
+          Everyone in the Campusphere community.
         </p>
       </div>
 
