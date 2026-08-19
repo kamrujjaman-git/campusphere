@@ -14,7 +14,7 @@ export default async function OwnerPage() {
     const adminClient = createAdminClient();
     const { data: communities, error } = await adminClient
         .from("communities")
-        .select("id, name, domain, key, created_at, status")
+        .select("id, name, domain, key, community_key, created_at, status")
         .order("created_at", { ascending: false });
     if (error) throw new Error(`Unable to load communities: ${error.message}`);
 

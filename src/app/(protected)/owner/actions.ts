@@ -130,14 +130,14 @@ export async function updateCommunity(formData: FormData) {
     const communityId = String(formData.get("community_id") ?? "");
     const name = String(formData.get("name") ?? "").trim();
     const domain = String(formData.get("domain") ?? "").trim().toLowerCase();
-    const key = String(formData.get("key") ?? "").trim().toLowerCase();
+    const communityKey = String(formData.get("community_key") ?? "").trim();
     const adminEmail = normalizeEmail(String(formData.get("admin_email") ?? ""));
     const status = String(formData.get("status") ?? "active");
     if (!isValidUuid(communityId)) return { success: false, error: "Community was not found." };
     const validationError = validateCommunityInput(name, domain, adminEmail);
-    if (validationError || !key || !["active", "suspended"].includes(status)) return { success: false, error: validationError ?? "Community fields are invalid." };
+    if (validationError || !communityKey || !["active", "suspended"].includes(status)) return { success: false, error: validationError ?? "Community fields are invalid." };
 
-    const { data, error } = await adminClient.from("communities").update({ name, domain, key, status }).eq("id", communityId).select("id").maybeSingle();
+    const { data, error } = await adminClient.from("communities").update({ name, domain, key: communityKey, community_key: communityKey, status }).eq("id", communityId).select("id").maybeSingle();
     if (error) return { success: false, error: error.message };
     if (!data) return { success: false, error: "Community was not found." };
 
