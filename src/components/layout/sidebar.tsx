@@ -10,6 +10,7 @@ import {
   CalendarDays,
   Megaphone,
   Settings,
+  Building2,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { isPlatformOwner } from "@/lib/community-validation";
@@ -34,7 +35,7 @@ export function Sidebar({
 }) {
   const pathname = usePathname();
   const visibleNavItems = isPlatformOwner(userEmail)
-    ? [...navItems, { href: "/owner", label: "Manage Communities", icon: Settings }]
+    ? [...navItems, { href: "/owner", label: "Manage Communities", icon: Building2 }]
     : navItems;
 
   return (

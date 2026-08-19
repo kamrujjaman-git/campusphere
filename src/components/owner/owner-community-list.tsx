@@ -70,13 +70,19 @@ export function OwnerCommunityList({ communities }: { communities: Community[] }
 
             {items.map((community) => (
                 <div key={community.id} className="rounded-xl border border-border bg-card p-4">
-                    <div className="grid gap-3 md:grid-cols-6 md:items-center">
-                        <div><p className="font-semibold">{community.name}</p><p className="text-xs text-muted-foreground">{community.domain}</p></div>
-                        <p className="font-mono text-xs text-muted-foreground">{community.key}</p>
-                        <p className="text-sm">{community.assignedAdminEmail || "Pending assignment"}</p>
-                        <p className="text-sm">{community.status}</p>
-                        <p className="text-sm">{community.totalMembers} members</p>
-                        <div className="flex gap-2 md:justify-end"><button type="button" onClick={() => setEditing(community)} className="rounded-lg border border-border px-3 py-2 text-xs hover:bg-secondary">Edit</button><button type="button" onClick={() => remove(community.id)} disabled={isPending} className="rounded-lg border border-destructive/50 px-3 py-2 text-xs text-destructive hover:bg-destructive/10">Delete</button></div>
+                    <div className="grid min-w-0 grid-cols-1 items-center gap-4 md:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)_minmax(0,1.5fr)_auto_auto_auto]">
+                        <div className="min-w-0">
+                            <p className="truncate font-semibold" title={community.name}>{community.name}</p>
+                            <p className="truncate text-xs text-muted-foreground" title={community.domain}>{community.domain}</p>
+                        </div>
+                        <p className="min-w-0 truncate font-mono text-xs text-muted-foreground" title={community.key}>{community.key}</p>
+                        <p className="min-w-0 truncate text-sm" title={community.assignedAdminEmail || "Pending assignment"}>{community.assignedAdminEmail || "Pending assignment"}</p>
+                        <span className={`w-fit whitespace-nowrap rounded-full px-2 py-1 text-xs font-medium capitalize ${community.status === "active" ? "bg-green-500/15 text-green-400" : "bg-secondary text-muted-foreground"}`}>{community.status}</span>
+                        <p className="whitespace-nowrap text-sm text-muted-foreground">{community.totalMembers} members</p>
+                        <div className="flex flex-wrap gap-2 md:justify-end">
+                            <button type="button" onClick={() => setEditing(community)} className="rounded-lg border border-border px-3 py-2 text-xs hover:bg-secondary">Edit</button>
+                            <button type="button" onClick={() => remove(community.id)} disabled={isPending} className="rounded-lg border border-destructive/50 px-3 py-2 text-xs text-destructive hover:bg-destructive/10">Delete</button>
+                        </div>
                     </div>
                 </div>
             ))}
