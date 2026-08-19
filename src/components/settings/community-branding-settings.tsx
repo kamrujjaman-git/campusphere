@@ -1,7 +1,11 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { updateCommunityBranding } from "@/app/(protected)/settings/settings-actions";
+import { ImagePlus } from "lucide-react";
+
+const MAX_FILE_SIZE = 2 * 1024 * 1024;
+const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/x-icon", "image/vnd.microsoft.icon"];
 
 export function CommunityBrandingSettings({
     communityName,
@@ -13,11 +17,27 @@ export function CommunityBrandingSettings({
     faviconUrl: string | null;
 }) {
     const [name, setName] = useState(communityName);
-    const [logo, setLogo] = useState(logoUrl ?? "");
-    const [favicon, setFavicon] = useState(faviconUrl ?? "");
+    const logoInputRef = useRef<HTMLInputElement>(null);
+    const faviconInputRef = useRef<HTMLInputElement>(null);
+    const [logoFile, setLogoFile] = useState<File | null>(null);
+    const [faviconFile, setFaviconFile] = useState<File | null>(null);
     const [isPending, startTransition] = useTransition();
     const [message, setMessage] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
+
+    const chooseFile = (file: File | undefined, setFile: (value: File | null) => void) => {
+        setError(null);
+        if (!file) return;
+        if (!ACCEPTED_TYPES.includes(file.type)) {
+            setError("Choose a JPEG, PNG, WEBP, or ICO image.");
+            return;
+        }
+        if (file.size > MAX_FILE_SIZE) {
+            setError("Branding images must be 2 MB or smaller.");
+            return;
+        }
+        setFile(file);
+    };
 
     const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
@@ -25,6 +45,8 @@ export function CommunityBrandingSettings({
         setError(null);
 
         const formData = new FormData(event.currentTarget);
+        if (logoFile) formData.set("logo", logoFile);
+        if (faviconFile) formData.set("favicon", faviconFile);
         startTransition(async () => {
             try {
                 await updateCommunityBranding(formData);
@@ -56,31 +78,25 @@ export function CommunityBrandingSettings({
                 />
             </label>
 
-            <label className="block text-xs text-muted-foreground">
-                Community Logo URL
-                <input
-                    name="logo_url"
-                    type="url"
-                    value={logo}
-                    onChange={(event) => setLogo(event.target.value)}
-                    placeholder="https://example.com/logo.png"
-                    className="mt-1 w-full rounded-lg border border-border bg-secondary px-3 py-2 text-sm text-foreground outline-none focus:ring-2 focus:ring-primary/50"
-                />
-                <span className="mt-1 block text-[11px]">Recommended: Square PNG/JPEG, 1:1 ratio (e.g. 512x512px, max 2MB)</span>
-            </label>
+            <div className="space-y-3">
+                <p className="text-xs text-muted-foreground">Community Logo</p>
+                <input ref={logoInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => chooseFile(event.target.files?.[0], setLogoFile)} className="sr-only" />
+                <button type="button" onClick={() => logoInputRef.current?.click()} onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); chooseFile(event.dataTransfer.files[0], setLogoFile); }} className="flex w-full items-center gap-3 rounded-lg border border-dashed border-border bg-secondary px-3 py-4 text-left text-sm hover:border-primary">
+                    <ImagePlus size={18} aria-hidden="true" />
+                    <span>{logoFile?.name ?? (logoUrl ? "Replace current logo" : "Choose or drop a logo")}</span>
+                </button>
+                <span className="block text-[11px] text-muted-foreground">JPEG, PNG, or WEBP, up to 2 MB.</span>
+            </div>
 
-            <label className="block text-xs text-muted-foreground">
-                Community Favicon URL
-                <input
-                    name="favicon_url"
-                    type="url"
-                    value={favicon}
-                    onChange={(event) => setFavicon(event.target.value)}
-                    placeholder="https://example.com/favicon.png"
-                    className="mt-1 w-full rounded-lg border border-border bg-secondary px-3 py-2 text-sm text-foreground outline-none focus:ring-2 focus:ring-primary/50"
-                />
-                <span className="mt-1 block text-[11px]">Recommended: ICO/PNG format, 1:1 ratio (e.g. 32x32px or 64x64px, max 500KB)</span>
-            </label>
+            <div className="space-y-3">
+                <p className="text-xs text-muted-foreground">Community Favicon</p>
+                <input ref={faviconInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/x-icon" onChange={(event) => chooseFile(event.target.files?.[0], setFaviconFile)} className="sr-only" />
+                <button type="button" onClick={() => faviconInputRef.current?.click()} onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); chooseFile(event.dataTransfer.files[0], setFaviconFile); }} className="flex w-full items-center gap-3 rounded-lg border border-dashed border-border bg-secondary px-3 py-4 text-left text-sm hover:border-primary">
+                    <ImagePlus size={18} aria-hidden="true" />
+                    <span>{faviconFile?.name ?? (faviconUrl ? "Replace current favicon" : "Choose or drop a favicon")}</span>
+                </button>
+                <span className="block text-[11px] text-muted-foreground">JPEG, PNG, WEBP, or ICO, up to 2 MB.</span>
+            </div>
 
             <button
                 type="submit"

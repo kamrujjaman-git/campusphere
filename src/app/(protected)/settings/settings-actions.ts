@@ -5,6 +5,14 @@ import { revalidatePath } from "next/cache";
 
 const MAX_AVATAR_SIZE = 2 * 1024 * 1024;
 const AVATAR_TYPES = new Set(["image/jpeg", "image/png"]);
+const MAX_BRANDING_SIZE = 2 * 1024 * 1024;
+const BRANDING_TYPES = new Map([
+  ["image/jpeg", "jpg"],
+  ["image/png", "png"],
+  ["image/webp", "webp"],
+  ["image/x-icon", "ico"],
+  ["image/vnd.microsoft.icon", "ico"],
+]);
 
 export async function updateMyProfile(formData: FormData) {
   const supabase = await createClient();
@@ -124,36 +132,65 @@ export async function updateWeeklyAmount(amount: number) {
 }
 
 export async function updateCommunityBranding(formData: FormData) {
-  const { supabase } = await requireAdmin();
+  const { supabase, communityId } = await requireAdmin();
   const name = String(formData.get("name") ?? "").trim();
-  const logoUrl = String(formData.get("logo_url") ?? "").trim();
-  const faviconUrl = String(formData.get("favicon_url") ?? "").trim();
+  const logoEntry = formData.get("logo");
+  const faviconEntry = formData.get("favicon");
+  const logoFile = logoEntry instanceof File && logoEntry.size > 0 ? logoEntry : null;
+  const faviconFile = faviconEntry instanceof File && faviconEntry.size > 0 ? faviconEntry : null;
 
   if (!name) throw new Error("Community name is required.");
 
-  for (const [label, value] of [["logo", logoUrl], ["favicon", faviconUrl]] as const) {
-    if (value && !/^https?:\/\//i.test(value)) {
-      throw new Error(`${label} URL must use http or https.`);
+  for (const [label, file] of [["logo", logoFile], ["favicon", faviconFile]] as const) {
+    if (!file) continue;
+    if (file.size > MAX_BRANDING_SIZE) {
+      throw new Error(`${label} images must be 2 MB or smaller.`);
+    }
+    if (!BRANDING_TYPES.has(file.type)) {
+      throw new Error(`${label} must be a JPEG, PNG, WEBP, or ICO image.`);
     }
   }
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("community_id")
-    .eq("id", user?.id)
-    .single();
-
-  if (!profile?.community_id) throw new Error("Your profile is not linked to a community.");
-
-  const { error } = await supabase
+  const { data: currentCommunity, error: communityLookupError } = await supabase
     .from("communities")
-    .update({ name, logo_url: logoUrl || null, favicon_url: faviconUrl || null })
-    .eq("id", profile.community_id);
+    .select("logo_url, favicon_url")
+    .eq("id", communityId)
+    .single();
+  if (communityLookupError || !currentCommunity) {
+    throw new Error("Your community could not be verified.");
+  }
 
-  if (error) throw new Error(`Branding update failed: ${error.message}`);
+  const uploadedPaths: string[] = [];
+  const uploadBrandingFile = async (file: File, label: string) => {
+    const extension = BRANDING_TYPES.get(file.type);
+    if (!extension) throw new Error(`${label} has an unsupported image type.`);
+    const path = `${communityId}/${label}-${crypto.randomUUID()}.${extension}`;
+    const { error } = await supabase.storage
+      .from("branding")
+      .upload(path, file, { contentType: file.type, upsert: false });
+    if (error) throw new Error(`${label} upload failed: ${error.message}`);
+    uploadedPaths.push(path);
+    return supabase.storage.from("branding").getPublicUrl(path).data.publicUrl;
+  };
+
+  let logoUrl = currentCommunity.logo_url;
+  let faviconUrl = currentCommunity.favicon_url;
+  try {
+    if (logoFile) logoUrl = await uploadBrandingFile(logoFile, "logo");
+    if (faviconFile) faviconUrl = await uploadBrandingFile(faviconFile, "favicon");
+
+    const { error } = await supabase
+      .from("communities")
+      .update({ name, logo_url: logoUrl, favicon_url: faviconUrl })
+      .eq("id", communityId);
+
+    if (error) throw new Error(`Branding update failed: ${error.message}`);
+  } catch (error) {
+    if (uploadedPaths.length > 0) {
+      await supabase.storage.from("branding").remove(uploadedPaths);
+    }
+    throw error;
+  }
 
   revalidatePath("/", "layout");
   revalidatePath("/settings");

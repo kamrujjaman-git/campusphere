@@ -27,11 +27,12 @@ export async function GET(request: Request) {
 
     if (!error && data.user) {
       const ownerBypass = isPlatformOwner(data.user.email);
-      const emailValidation = validateUniversityEmail(data.user.email ?? "");
 
       if (ownerBypass) {
         return NextResponse.redirect(`${origin}/owner`);
       }
+
+      const emailValidation = validateUniversityEmail(data.user.email ?? "");
 
       if (!emailValidation.valid) {
         await supabase.auth.signOut();
