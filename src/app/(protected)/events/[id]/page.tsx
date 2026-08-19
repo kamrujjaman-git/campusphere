@@ -8,6 +8,7 @@ import { DeleteEventButton } from "@/components/events/delete-event-button";
 import type { RsvpStatus } from "@/types/event";
 import { getTenantContext } from "@/lib/supabase/tenant";
 import { isValidUuid } from "@/lib/utils";
+import { isPlatformOwner } from "@/lib/community-validation";
 
 export default async function EventDetailPage({
   params,
@@ -23,9 +24,10 @@ export default async function EventDetailPage({
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  const owner = isPlatformOwner(user?.email);
 
   const [profileResult, eventResult] = await Promise.all([
-    supabase.from("profiles").select("role").eq("id", user?.id).single(),
+    owner ? Promise.resolve({ data: { role: "super_admin" } }) : supabase.from("profiles").select("role").eq("id", user?.id).single(),
     tenant.isOwner || !tenant.communityId
       ? supabase.from("events").select("*").eq("id", id).single()
       : supabase.from("events").select("*").eq("id", id).eq("community_id", tenant.communityId).single(),

@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { MemberDirectory } from "@/components/members/member-directory";
 import type { Profile } from "@/types/profile";
 import { getTenantContext } from "@/lib/supabase/tenant";
+import { isPlatformOwner } from "@/lib/community-validation";
 
 export default async function MembersPage() {
   const supabase = await createClient();
@@ -11,9 +12,10 @@ export default async function MembersPage() {
   } = await supabase.auth.getUser();
   const tenant = await getTenantContext(supabase);
   if (!tenant) return null;
+  const owner = isPlatformOwner(user?.email);
 
   const [currentProfileResult, profilesResult] = await Promise.all([
-    supabase.from("profiles").select("role").eq("id", user?.id).maybeSingle(),
+    owner ? Promise.resolve({ data: { role: "super_admin" } }) : supabase.from("profiles").select("role").eq("id", user?.id).maybeSingle(),
     tenant.isOwner || !tenant.communityId
       ? supabase.from("profiles").select("*").order("full_name", { ascending: true })
       : supabase.from("profiles").select("*").eq("community_id", tenant.communityId).order("full_name", { ascending: true }),
