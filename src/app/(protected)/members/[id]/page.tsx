@@ -5,6 +5,7 @@ import { DeleteMemberButton } from "@/components/members/delete-member-button";
 import { AvatarDisplay } from "@/components/members/avatar-display";
 import { RoleBadge } from "@/components/members/role-badge";
 import { getTenantContext } from "@/lib/supabase/tenant";
+import { isValidUuid } from "@/lib/utils";
 
 export default async function MemberProfilePage({
   params,
@@ -12,6 +13,7 @@ export default async function MemberProfilePage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  if (!isValidUuid(id)) notFound();
   const supabase = await createClient();
   const tenant = await getTenantContext(supabase);
   if (!tenant) return null;

@@ -26,7 +26,9 @@ async function requireAdminOrTreasurer() {
     throw new Error("Only admins or treasurers can do this.");
   }
 
-  return { supabase, userId: user.id, tenant: await getTenantContext(supabase) };
+  const tenant = await getTenantContext(supabase);
+  if (!tenant) throw new Error("Not authenticated");
+  return { supabase, userId: user.id, tenant };
 }
 
 function getMonday(date: Date) {
@@ -42,7 +44,7 @@ function getMonday(date: Date) {
 export async function generateWeeklyDues() {
   try {
     const { supabase, tenant } = await requireAdminOrTreasurer();
-    const scope = <T,>(query: T): T => tenant?.isOwner || !tenant?.communityId ? query : (query as { eq: (field: string, value: string) => T }).eq("community_id", tenant.communityId);
+    const scope = <T,>(query: T): T => tenant.isOwner ? query : (query as { eq: (field: string, value: string) => T }).eq("community_id", tenant.communityId!);
     const weekStart = getMonday(new Date());
 
     const { data: appSettings } = await supabase
@@ -126,10 +128,11 @@ export async function markContributionPaid(contributionId: string) {
       marked_by: userId,
     })
     .eq("id", contributionId);
-  if (tenant?.communityId && !tenant.isOwner) query = query.eq("community_id", tenant.communityId);
-  const { error } = await query;
+  if (!tenant.isOwner) query = query.eq("community_id", tenant.communityId!);
+  const { data, error } = await query.select("id").maybeSingle();
 
   if (error) throw new Error(error.message);
+  if (!data) throw new Error("Contribution was not found or could not be updated.");
 
   revalidatePath("/finance");
   revalidatePath("/dashboard");
@@ -142,10 +145,11 @@ export async function markContributionDue(contributionId: string) {
     .from("contributions")
     .update({ status: "due", paid_at: null, marked_by: null })
     .eq("id", contributionId);
-  if (tenant?.communityId && !tenant.isOwner) query = query.eq("community_id", tenant.communityId);
-  const { error } = await query;
+  if (!tenant.isOwner) query = query.eq("community_id", tenant.communityId!);
+  const { data, error } = await query.select("id").maybeSingle();
 
   if (error) throw new Error(error.message);
+  if (!data) throw new Error("Contribution was not found or could not be updated.");
 
   revalidatePath("/finance");
   revalidatePath("/dashboard");
@@ -175,7 +179,7 @@ export async function updateContribution(
       marked_by: status === "paid" ? userId : null,
     })
     .eq("id", contributionId);
-  if (tenant?.communityId && !tenant.isOwner) query = query.eq("community_id", tenant.communityId);
+  if (!tenant.isOwner) query = query.eq("community_id", tenant.communityId!);
   const { data, error } = await query.select("id").maybeSingle();
 
   if (error) throw new Error(`Contribution update failed: ${error.message}`);
@@ -192,7 +196,7 @@ export async function deleteContribution(contributionId: string) {
     .from("contributions")
     .delete()
     .eq("id", contributionId);
-  if (tenant?.communityId && !tenant.isOwner) query = query.eq("community_id", tenant.communityId);
+  if (!tenant.isOwner) query = query.eq("community_id", tenant.communityId!);
   const { data, error } = await query.select("id").maybeSingle();
 
   if (error) throw new Error(`Contribution deletion failed: ${error.message}`);
@@ -208,7 +212,7 @@ export async function createEventContribution(
   amount: number
 ) {
   const { supabase, tenant } = await requireAdminOrTreasurer();
-  const scope = <T,>(query: T): T => tenant?.isOwner || !tenant?.communityId ? query : (query as { eq: (field: string, value: string) => T }).eq("community_id", tenant.communityId);
+  const scope = <T,>(query: T): T => tenant.isOwner ? query : (query as { eq: (field: string, value: string) => T }).eq("community_id", tenant.communityId!);
 
   const { data: activeMembers } = await scope(supabase
     .from("profiles")

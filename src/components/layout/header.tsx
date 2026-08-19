@@ -1,6 +1,6 @@
+/* eslint-disable @next/next/no-img-element */
 "use client";
 
-import Image from "next/image";
 import { SignOutButton } from "@/components/layout/sign-out-button";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { AvatarDisplay } from "@/components/members/avatar-display";
@@ -12,24 +12,32 @@ export function Header({
   userEmail,
   userRole,
   avatarUrl,
+  communityName,
+  communityLogo,
 }: {
   userName: string;
   userEmail: string;
   userRole: UserRole;
   avatarUrl: string | null;
+  communityName: string;
+  communityLogo: string;
 }) {
   return (
     <header className="sticky top-0 z-30 flex items-center justify-between h-16 px-4 md:px-8 border-b border-border bg-background/80 backdrop-blur-md">
       <div className="md:hidden flex items-center gap-2">
-        <Image
-          src="/logo.png"
-          alt="PLAYBOYZ logo"
+        <img
+          src={communityLogo}
+          alt={`${communityName} logo`}
           width={28}
           height={28}
           className="rounded-lg"
+          onError={(event) => {
+            event.currentTarget.onerror = null;
+            event.currentTarget.src = "/logo.png";
+          }}
         />
         <span className="font-black text-primary tracking-tight">
-          PLAYBOYZ
+          {communityName}
         </span>
       </div>
       <div className="hidden md:block" />

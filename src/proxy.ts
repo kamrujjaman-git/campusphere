@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { isPlatformOwner } from "@/lib/community-validation";
 
 export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
@@ -49,15 +50,19 @@ export async function proxy(request: NextRequest) {
   if (user) {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("status")
+      .select("status, community_id")
       .eq("id", user.id)
       .maybeSingle();
 
-    if (profile?.status === "inactive") {
+    if (
+      !profile ||
+      profile.status === "inactive" ||
+      (!isPlatformOwner(user.email) && !profile.community_id)
+    ) {
       await supabase.auth.signOut();
       const url = request.nextUrl.clone();
       url.pathname = "/login";
-      url.search = "?error=inactive";
+      url.search = `?error=${profile?.status === "inactive" ? "inactive" : "unregistered_user"}`;
       const response = NextResponse.redirect(url);
       supabaseResponse.cookies.getAll().forEach((cookie) => {
         response.cookies.set(cookie);

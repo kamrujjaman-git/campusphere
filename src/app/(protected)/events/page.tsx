@@ -22,7 +22,9 @@ export default async function EventsPage() {
   const myProfile = profileResult.data;
 
   const canManage =
-    myProfile?.role === "super_admin" || myProfile?.role === "admin";
+    myProfile?.role === "super_admin" ||
+    myProfile?.role === "admin" ||
+    myProfile?.role === "treasurer";
 
   const events = eventsResult.data;
 

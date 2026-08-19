@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { Copy, RefreshCw } from "lucide-react";
-import { regenerateCommunityKey } from "@/app/(protected)/settings/settings-actions";
+import { useState } from "react";
+import { Copy } from "lucide-react";
 
 export function CommunityInviteSettings({
     communityDomain,
@@ -11,31 +10,12 @@ export function CommunityInviteSettings({
     communityDomain: string;
     communityKey: string;
 }) {
-    const [key, setKey] = useState(communityKey);
-    const [isPending, startTransition] = useTransition();
+    const key = communityKey;
     const [message, setMessage] = useState<string | null>(null);
 
     const copyKey = async () => {
         await navigator.clipboard.writeText(key);
         setMessage("Community key copied.");
-    };
-
-    const regenerate = () => {
-        if (!window.confirm("Regenerate this key? Existing invite links using it will stop working.")) return;
-        setMessage(null);
-        startTransition(async () => {
-            try {
-                const result = await regenerateCommunityKey();
-                if (!result.success) {
-                    setMessage(result.error ?? "Unable to regenerate key.");
-                    return;
-                }
-                setKey(result.key ?? key);
-                setMessage("Community key regenerated.");
-            } catch (error) {
-                setMessage(error instanceof Error ? error.message : "Unable to regenerate key.");
-            }
-        });
     };
 
     return (
@@ -58,10 +38,6 @@ export function CommunityInviteSettings({
                         </button>
                     </div>
                 </div>
-                <button type="button" onClick={regenerate} disabled={isPending} className="inline-flex items-center gap-2 rounded-lg border border-destructive/40 px-3 py-2 text-sm font-medium text-destructive hover:bg-destructive/10 disabled:opacity-50">
-                    <RefreshCw size={15} aria-hidden="true" />
-                    {isPending ? "Regenerating..." : "Regenerate Key"}
-                </button>
                 {message && <p className="text-xs text-muted-foreground" role="status">{message}</p>}
             </div>
         </div>

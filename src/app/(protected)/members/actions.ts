@@ -43,6 +43,10 @@ async function requireMemberManager() {
     throw new Error("Only super admins and admins can manage members.");
   }
 
+  if (!isPlatformOwner(user.email) && !requesterProfile.community_id) {
+    throw new Error("Unauthorized: Missing Community Scope");
+  }
+
   return {
     userId: user.id,
     userEmail: user.email ?? "",
@@ -66,7 +70,7 @@ export async function updateMemberRoleStatus(
   status: UserStatus
 ): Promise<ActionResult> {
   const { userId, userEmail, requesterRole, communityId } = await requireMemberManager();
-  const scope = <T,>(query: T): T => isPlatformOwner(userEmail) || !communityId ? query : (query as { eq: (field: string, value: string) => T }).eq("community_id", communityId);
+  const scope = <T,>(query: T): T => isPlatformOwner(userEmail) ? query : (query as { eq: (field: string, value: string) => T }).eq("community_id", communityId!);
 
   if (!validRoles.has(role) || !validStatuses.has(status)) {
     return { success: false, error: "Invalid member role or status." };
@@ -205,7 +209,7 @@ export async function createMember(formData: FormData): Promise<ActionResult> {
 
 export async function deleteMember(memberId: string): Promise<ActionResult> {
   const { userId, userEmail, requesterRole, communityId } = await requireMemberManager();
-  const scope = <T,>(query: T): T => isPlatformOwner(userEmail) || !communityId ? query : (query as { eq: (field: string, value: string) => T }).eq("community_id", communityId);
+  const scope = <T,>(query: T): T => isPlatformOwner(userEmail) ? query : (query as { eq: (field: string, value: string) => T }).eq("community_id", communityId!);
 
   if (memberId === userId) {
     return { success: false, error: "You cannot delete your own account." };

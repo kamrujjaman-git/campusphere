@@ -35,7 +35,6 @@ export async function updateMyProfile(formData: FormData) {
   revalidatePath("/settings");
   revalidatePath("/dashboard");
 }
-
 export async function saveAvatar(formData: FormData) {
   const supabase = await createClient();
   const {
@@ -96,19 +95,19 @@ async function requireAdmin() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role")
+    .select("role, community_id")
     .eq("id", user.id)
     .single();
 
-  if (profile?.role !== "super_admin") {
+  if (profile?.role !== "super_admin" || !profile.community_id) {
     throw new Error("Only super admins can change this.");
   }
 
-  return supabase;
+  return { supabase, communityId: profile.community_id };
 }
 
 export async function updateWeeklyAmount(amount: number) {
-  const supabase = await requireAdmin();
+  const { supabase, communityId } = await requireAdmin();
 
   if (!amount || amount <= 0) {
     throw new Error("Enter a valid amount.");
@@ -117,69 +116,47 @@ export async function updateWeeklyAmount(amount: number) {
   const { error } = await supabase
     .from("app_settings")
     .update({ weekly_contribution_amount: amount, updated_at: new Date().toISOString() })
-    .eq("id", 1);
+    .eq("community_id", communityId);
 
   if (error) throw new Error(error.message);
 
   revalidatePath("/settings");
 }
 
-export async function regenerateCommunityKey() {
-  const supabase = await createClient();
+export async function updateCommunityBranding(formData: FormData) {
+  const { supabase } = await requireAdmin();
+  const name = String(formData.get("name") ?? "").trim();
+  const logoUrl = String(formData.get("logo_url") ?? "").trim();
+  const faviconUrl = String(formData.get("favicon_url") ?? "").trim();
+
+  if (!name) throw new Error("Community name is required.");
+
+  for (const [label, value] of [["logo", logoUrl], ["favicon", faviconUrl]] as const) {
+    if (value && !/^https?:\/\//i.test(value)) {
+      throw new Error(`${label} URL must use http or https.`);
+    }
+  }
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
-
-  if (!user) throw new Error("Not authenticated");
-
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role, community_id")
-    .eq("id", user.id)
+    .select("community_id")
+    .eq("id", user?.id)
     .single();
 
-  if (profile?.role !== "super_admin") {
-    return { success: false, error: "Only super admins can regenerate the community key." };
-  }
-  if (!profile.community_id) {
-    return { success: false, error: "Your profile is not linked to a community." };
-  }
+  if (!profile?.community_id) throw new Error("Your profile is not linked to a community.");
 
-  const { data: community, error: communityError } = await supabase
+  const { error } = await supabase
     .from("communities")
-    .select("name")
-    .eq("id", profile.community_id)
-    .maybeSingle();
-  if (communityError || !community) {
-    return { success: false, error: "Community could not be found." };
-  }
-
-  const prefix = String(community.name)
-    .toUpperCase()
-    .replace(/[^A-Z0-9]+/g, "-")
-    .replace(/^-|-$/g, "")
-    .slice(0, 24) || "COMMUNITY";
-  let generatedKey = "";
-  for (let attempt = 0; attempt < 10; attempt += 1) {
-    const candidate = `${prefix}-${Math.floor(1000 + Math.random() * 9000)}`;
-    const { data: existing } = await supabase
-      .from("communities")
-      .select("id")
-      .or(`key.eq.${candidate},community_key.eq.${candidate}`)
-      .maybeSingle();
-    if (!existing) {
-      generatedKey = candidate;
-      break;
-    }
-  }
-  if (!generatedKey) return { success: false, error: "Unable to generate a unique key. Try again." };
-
-  const { error: updateError } = await supabase
-    .from("communities")
-    .update({ key: generatedKey, community_key: generatedKey })
+    .update({ name, logo_url: logoUrl || null, favicon_url: faviconUrl || null })
     .eq("id", profile.community_id);
-  if (updateError) return { success: false, error: `Key regeneration failed: ${updateError.message}` };
 
+  if (error) throw new Error(`Branding update failed: ${error.message}`);
+
+  revalidatePath("/", "layout");
   revalidatePath("/settings");
-  return { success: true, key: generatedKey };
+  revalidatePath("/dashboard");
 }
+

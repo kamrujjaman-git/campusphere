@@ -134,9 +134,10 @@ export async function deleteExpense(expenseId: string) {
     .delete()
     .eq("id", expenseId);
   if (tenant?.communityId && !tenant.isOwner) query = query.eq("community_id", tenant.communityId);
-  const { error } = await query;
+  const { data, error } = await query.select("id").maybeSingle();
 
   if (error) throw new Error(error.message);
+  if (!data) throw new Error("Expense was not found or could not be deleted.");
 
   revalidatePath("/finance");
   revalidatePath("/dashboard");

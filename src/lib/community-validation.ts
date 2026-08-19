@@ -1,4 +1,6 @@
-export const PLATFORM_OWNER_EMAIL = "md.kamrujjaman092@gmail.com";
+export const PLATFORM_OWNER_EMAIL = (process.env.PLATFORM_OWNER_EMAIL ?? "")
+    .trim()
+    .toLowerCase();
 export const MAX_ACTIVE_COMMUNITIES = 10;
 
 export function normalizeEmail(email: string) {
@@ -6,7 +8,8 @@ export function normalizeEmail(email: string) {
 }
 
 export function isPlatformOwner(email: string | null | undefined) {
-    return normalizeEmail(email ?? "") === PLATFORM_OWNER_EMAIL;
+    const normalizedEmail = normalizeEmail(email ?? "");
+    return Boolean(PLATFORM_OWNER_EMAIL) && Boolean(normalizedEmail) && normalizedEmail === PLATFORM_OWNER_EMAIL;
 }
 
 export function getEmailDomain(email: string) {

@@ -20,11 +20,17 @@ export async function getTenantContext(
         .select("community_id")
         .eq("id", user.id)
         .maybeSingle();
+    const owner = isPlatformOwner(user.email);
+    const communityId = profile?.community_id ?? null;
+
+    if (!owner && !communityId) {
+        throw new Error("Unauthorized: Missing Community Scope");
+    }
 
     return {
         user,
-        communityId: profile?.community_id ?? null,
-        isOwner: isPlatformOwner(user.email),
+        communityId,
+        isOwner: owner,
     };
 }
 
@@ -33,7 +39,10 @@ export function scopeToCommunity<T>(
     context: TenantContext,
     column = "community_id"
 ): T {
-    if (context.isOwner || !context.communityId) return query;
+    if (context.isOwner) return query;
+    if (!context.communityId) {
+        throw new Error("Unauthorized: Missing Community Scope");
+    }
     return (query as { eq: (field: string, value: string) => T }).eq(
         column,
         context.communityId

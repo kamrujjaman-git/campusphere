@@ -1,7 +1,7 @@
+/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
@@ -23,7 +23,15 @@ const navItems = [
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
-export function Sidebar({ userEmail }: { userEmail: string }) {
+export function Sidebar({
+  userEmail,
+  communityName,
+  communityLogo,
+}: {
+  userEmail: string;
+  communityName: string;
+  communityLogo: string;
+}) {
   const pathname = usePathname();
   const visibleNavItems = isPlatformOwner(userEmail)
     ? [...navItems, { href: "/owner", label: "Global Management", icon: Settings }]
@@ -32,15 +40,19 @@ export function Sidebar({ userEmail }: { userEmail: string }) {
   return (
     <aside className="hidden md:flex md:flex-col md:w-64 md:fixed md:inset-y-0 border-r border-border bg-card">
       <div className="flex items-center gap-2.5 px-6 h-16 border-b border-border">
-        <Image
-          src="/logo.png"
-          alt="PLAYBOYZ logo"
+        <img
+          src={communityLogo}
+          alt={`${communityName} logo`}
           width={32}
           height={32}
           className="rounded-lg flex-shrink-0"
+          onError={(event) => {
+            event.currentTarget.onerror = null;
+            event.currentTarget.src = "/logo.png";
+          }}
         />
         <span className="text-xl font-black tracking-tight text-primary">
-          PLAYBOYZ
+          {communityName}
         </span>
       </div>
 

@@ -76,17 +76,21 @@ function LoginContent() {
           <div role="alert" className="w-full rounded-xl border-2 border-destructive bg-destructive/15 px-4 py-3 text-center text-sm font-semibold text-destructive">
             {errorCode === "invalid_domain"
               ? "Sign-in blocked: only official university emails ending in .edu or .edu.bd are permitted."
-              : errorCode === "not_owner"
-                ? "You Are Not The Owner. Use Join Community to access a university community."
-                : errorCode === "community_domain_mismatch"
-                  ? "This email does not match the community's registered university domain."
-                  : errorCode === "community_not_found"
-                    ? "Community key not found. Check the key and try again."
-                    : errorCode === "inactive"
-                      ? "Your account is inactive. Please contact an admin for access."
-                      : errorCode === "db_error"
-                        ? `Community creation failed${errorDetail ? `: ${errorDetail}` : ". Please try again."}`
-                        : "Authentication failed. Please try again."}
+              : errorCode === "unregistered_user"
+                ? "No active community profile found. Please create or join a community first."
+                : errorCode === "already_registered"
+                  ? "Your account is already registered to another community."
+                  : errorCode === "not_owner"
+                    ? "You Are Not The Owner. Use Join Community to access a university community."
+                    : errorCode === "community_domain_mismatch"
+                      ? "This email does not match the community's registered university domain."
+                      : errorCode === "community_not_found"
+                        ? "Community key not found. Check the key and try again."
+                        : errorCode === "inactive"
+                          ? "Your account is inactive. Please contact an admin for access."
+                          : errorCode === "db_error"
+                            ? `Community creation failed${errorDetail ? `: ${errorDetail}` : ". Please try again."}`
+                            : "Authentication failed. Please try again."}
           </div>
         )}
         <div className="w-full space-y-3">

@@ -2,7 +2,6 @@ import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 import {
   MAX_ACTIVE_COMMUNITIES,
-  getEmailDomain,
   isPlatformOwner,
   validateUniversityEmail,
 } from "@/lib/community-validation";
@@ -30,14 +29,60 @@ export async function GET(request: Request) {
       const ownerBypass = isPlatformOwner(data.user.email);
       const emailValidation = validateUniversityEmail(data.user.email ?? "");
 
-      if (!ownerBypass && !emailValidation.valid) {
+      if (ownerBypass) {
+        return NextResponse.redirect(`${origin}/owner`);
+      }
+
+      if (!emailValidation.valid) {
         await supabase.auth.signOut();
         return loginRedirect("invalid_domain");
       }
 
-      if (tab === "signin" && !ownerBypass) {
+      const { data: existingProfile, error: profileLookupError } = await supabase
+        .from("profiles")
+        .select("id, status, role, community_id")
+        .eq("id", data.user.id)
+        .maybeSingle();
+
+      if (profileLookupError) {
         await supabase.auth.signOut();
-        return loginRedirect("not_owner");
+        return loginRedirect("profile_lookup_failed");
+      }
+
+      if (tab === "signin") {
+        if (!existingProfile?.community_id || existingProfile.status !== "active") {
+          await supabase.auth.signOut();
+          return loginRedirect("unregistered_user");
+        }
+
+        const { data: community, error: communityError } = await supabase
+          .from("communities")
+          .select("id")
+          .eq("id", existingProfile.community_id)
+          .eq("status", "active")
+          .maybeSingle();
+
+        if (communityError || !community) {
+          await supabase.auth.signOut();
+          return loginRedirect("unregistered_user");
+        }
+
+        return NextResponse.redirect(`${origin}/dashboard`);
+      }
+
+      if (existingProfile?.status === "inactive") {
+        await supabase.auth.signOut();
+        return loginRedirect("inactive");
+      }
+
+      if (tab === "join" && !communityKey) {
+        await supabase.auth.signOut();
+        return loginRedirect("community_not_found");
+      }
+
+      if (tab === "create" && existingProfile?.community_id) {
+        await supabase.auth.signOut();
+        return loginRedirect("already_registered");
       }
 
       let communityId: string | null = null;
@@ -53,13 +98,16 @@ export async function GET(request: Request) {
           return loginRedirect("community_not_found");
         }
 
-        if (
-          !ownerBypass &&
-          getEmailDomain(data.user.email ?? "") !== String(community.domain).toLowerCase()
-        ) {
+        if (emailValidation.domain !== String(community.domain).trim().toLowerCase()) {
           await supabase.auth.signOut();
           return loginRedirect("community_domain_mismatch");
         }
+
+        if (existingProfile?.community_id && existingProfile.community_id !== community.id) {
+          await supabase.auth.signOut();
+          return loginRedirect("already_registered");
+        }
+
         communityId = community.id;
       }
 
@@ -94,7 +142,7 @@ export async function GET(request: Request) {
             name: createCommunityName,
             key: generatedKey,
             community_key: generatedKey,
-            domain: ownerBypass ? getEmailDomain(data.user.email ?? "") : emailValidation.domain,
+            domain: emailValidation.domain,
             created_by: data.user.id,
             status: "active",
           })
@@ -117,29 +165,23 @@ export async function GET(request: Request) {
         return loginRedirect("db_error", "Community name is required.");
       }
 
-      // Only create a default profile for a first-time user. Never overwrite
-      // fields, including status, on an existing profile during sign-in.
-      const { data: existingProfile, error: profileLookupError } = await supabase
-        .from("profiles")
-        .select("id, status, role")
-        .eq("id", data.user.id)
-        .single();
-
-      if (profileLookupError && profileLookupError.code !== "PGRST116") {
-        return loginRedirect("profile_lookup_failed");
-      }
-
-      if (existingProfile?.status === "inactive") {
-        await supabase.auth.signOut();
-        return loginRedirect("inactive");
-      }
-
       if (existingProfile && ownerBypass && existingProfile.role !== "super_admin") {
         const { error: ownerRoleError } = await supabase
           .from("profiles")
           .update({ role: "super_admin" })
           .eq("id", data.user.id);
         if (ownerRoleError) return loginRedirect("profile_update_failed");
+      }
+
+      if (existingProfile && tab === "join" && communityId) {
+        const { error: profileCommunityError } = await supabase
+          .from("profiles")
+          .update({ community_id: communityId })
+          .eq("id", data.user.id);
+        if (profileCommunityError) {
+          await supabase.auth.signOut();
+          return loginRedirect("profile_update_failed");
+        }
       }
 
       if (existingProfile && tab === "create" && createCommunityName && communityId) {

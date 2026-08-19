@@ -19,11 +19,16 @@ async function requireAdmin() {
     .eq("id", user.id)
     .single();
 
-  if (profile?.role !== "super_admin" && profile?.role !== "admin") {
-    throw new Error("Only super admins and admins can manage events.");
+  if (
+    profile?.role !== "super_admin" &&
+    profile?.role !== "admin" &&
+    profile?.role !== "treasurer"
+  ) {
+    throw new Error("Only super admins, admins, and treasurers can manage events.");
   }
 
   const tenant = await getTenantContext(supabase);
+  if (!tenant) throw new Error("Not authenticated");
   return { supabase, userId: user.id, tenant };
 }
 
@@ -92,6 +97,7 @@ export async function updateEvent(eventId: string, formData: FormData) {
     })
     .eq("id", eventId);
   if (tenant?.communityId && !tenant.isOwner) updateQuery = updateQuery.eq("community_id", tenant.communityId);
+  if (!tenant.isOwner) updateQuery = updateQuery.eq("community_id", tenant.communityId!);
   const { data, error } = await updateQuery.select("id").maybeSingle();
 
   if (error) throw new Error(`Event update failed: ${error.message}`);
@@ -103,7 +109,7 @@ export async function updateEvent(eventId: string, formData: FormData) {
 
 export async function deleteEvent(eventId: string) {
   const { supabase, tenant } = await requireAdmin();
-  const scope = <T,>(query: T): T => tenant?.isOwner || !tenant?.communityId ? query : (query as { eq: (field: string, value: string) => T }).eq("community_id", tenant.communityId);
+  const scope = <T,>(query: T): T => tenant.isOwner ? query : (query as { eq: (field: string, value: string) => T }).eq("community_id", tenant.communityId!);
 
   const { error: participantError } = await scope(supabase
     .from("event_participants")
@@ -137,9 +143,11 @@ export async function updateEventStatus(eventId: string, status: EventStatus) {
     .update({ status })
     .eq("id", eventId);
   if (tenant?.communityId && !tenant.isOwner) query = query.eq("community_id", tenant.communityId);
-  const { error } = await query;
+  if (!tenant.isOwner) query = query.eq("community_id", tenant.communityId!);
+  const { data, error } = await query.select("id").maybeSingle();
 
   if (error) throw new Error(error.message);
+  if (!data) throw new Error("Event was not found or could not be updated.");
 
   revalidatePath("/events");
   revalidatePath(`/events/${eventId}`);
@@ -153,7 +161,8 @@ export async function setRsvp(eventId: string, status: RsvpStatus) {
 
   if (!user) throw new Error("Not authenticated");
   const tenant = await getTenantContext(supabase);
-  if (!tenant?.communityId && !tenant?.isOwner) throw new Error("Your account is not linked to a community.");
+  if (!tenant) throw new Error("Not authenticated");
+  if (!tenant) throw new Error("Not authenticated");
 
   if (!["going", "not_going", "pending"].includes(status)) {
     throw new Error("Invalid RSVP status.");
@@ -196,7 +205,7 @@ export async function setRsvp(eventId: string, status: RsvpStatus) {
 // Generates an extra "due" contribution for this event for every active member.
 export async function generateEventContributions(eventId: string) {
   const { supabase, tenant } = await requireAdmin();
-  const scope = <T,>(query: T): T => tenant?.isOwner || !tenant?.communityId ? query : (query as { eq: (field: string, value: string) => T }).eq("community_id", tenant.communityId);
+  const scope = <T,>(query: T): T => tenant.isOwner ? query : (query as { eq: (field: string, value: string) => T }).eq("community_id", tenant.communityId!);
 
   const { data: event } = await scope(supabase
     .from("events")

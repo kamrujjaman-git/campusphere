@@ -3,6 +3,38 @@ import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
 import { BottomNav } from "@/components/layout/bottom-nav";
 import { Header } from "@/components/layout/header";
+import type { Metadata } from "next";
+import { isPlatformOwner } from "@/lib/community-validation";
+
+const DEFAULT_LOGO = "/logo.png";
+const DEFAULT_FAVICON = "/favicon.ico";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { title: "PLAYBOYZ" };
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("community_id")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (!profile?.community_id) return { title: "PLAYBOYZ" };
+
+  const { data: community } = await supabase
+    .from("communities")
+    .select("name, favicon_url")
+    .eq("id", profile.community_id)
+    .maybeSingle();
+
+  return {
+    title: community?.name || "PLAYBOYZ",
+    icons: { icon: community?.favicon_url || DEFAULT_FAVICON },
+  };
+}
 
 export default async function ProtectedLayout({
   children,
@@ -20,24 +52,41 @@ export default async function ProtectedLayout({
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("full_name, status, role, avatar_url")
+    .select("full_name, status, role, avatar_url, community_id")
     .eq("id", user.id)
     .single();
 
-  if (profile?.status === "inactive") {
+  if (
+    !profile ||
+    profile.status === "inactive" ||
+    (!isPlatformOwner(user.email) && !profile.community_id)
+  ) {
     await supabase.auth.signOut();
-    redirect("/login?error=inactive");
+    redirect(`/login?error=${profile?.status === "inactive" ? "inactive" : "unregistered_user"}`);
   }
+
+  const { data: community } = profile?.community_id
+    ? await supabase
+      .from("communities")
+      .select("name, logo_url, favicon_url")
+      .eq("id", profile.community_id)
+      .maybeSingle()
+    : { data: null };
+
+  const communityName = community?.name || "PLAYBOYZ";
+  const communityLogo = community?.logo_url || DEFAULT_LOGO;
 
   return (
     <div className="min-h-screen bg-background">
-      <Sidebar userEmail={user.email ?? ""} />
+      <Sidebar userEmail={user.email ?? ""} communityName={communityName} communityLogo={communityLogo} />
       <div className="md:pl-64">
         <Header
           userName={profile?.full_name || "Member"}
           userEmail={user.email ?? ""}
           userRole={profile?.role ?? "member"}
           avatarUrl={profile?.avatar_url ?? null}
+          communityName={communityName}
+          communityLogo={communityLogo}
         />
         <main className="p-4 md:p-8 pb-24 md:pb-8">{children}</main>
       </div>

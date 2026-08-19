@@ -7,6 +7,7 @@ import { EditEventForm } from "@/components/events/edit-event-form";
 import { DeleteEventButton } from "@/components/events/delete-event-button";
 import type { RsvpStatus } from "@/types/event";
 import { getTenantContext } from "@/lib/supabase/tenant";
+import { isValidUuid } from "@/lib/utils";
 
 export default async function EventDetailPage({
   params,
@@ -14,6 +15,7 @@ export default async function EventDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  if (!isValidUuid(id)) notFound();
   const supabase = await createClient();
   const tenant = await getTenantContext(supabase);
   if (!tenant) return null;
@@ -32,7 +34,9 @@ export default async function EventDetailPage({
   const myProfile = profileResult.data;
 
   const canManage =
-    myProfile?.role === "super_admin" || myProfile?.role === "admin";
+    myProfile?.role === "super_admin" ||
+    myProfile?.role === "admin" ||
+    myProfile?.role === "treasurer";
 
   const event = eventResult.data;
 

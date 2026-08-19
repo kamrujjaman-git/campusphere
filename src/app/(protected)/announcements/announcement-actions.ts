@@ -59,9 +59,10 @@ export async function deleteAnnouncement(id: string) {
     .delete()
     .eq("id", id);
   if (tenant?.communityId && !tenant.isOwner) query = query.eq("community_id", tenant.communityId);
-  const { error } = await query;
+  const { data, error } = await query.select("id").maybeSingle();
 
   if (error) throw new Error(error.message);
+  if (!data) throw new Error("Announcement was not found or could not be deleted.");
 
   revalidatePath("/announcements");
 }
