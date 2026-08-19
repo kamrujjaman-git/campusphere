@@ -119,6 +119,7 @@ export async function createCommunity(formData: FormData) {
     }
 
     revalidatePath("/owner");
+    revalidatePath("/dashboard");
     return { success: true };
 }
 
@@ -152,6 +153,7 @@ export async function updateCommunity(formData: FormData) {
     }
 
     revalidatePath("/owner");
+    revalidatePath("/dashboard");
     return { success: true };
 }
 
