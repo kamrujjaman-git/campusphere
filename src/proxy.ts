@@ -41,6 +41,10 @@ export async function proxy(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  if (user && isPlatformOwner(user.email)) {
+    return supabaseResponse;
+  }
+
   if (!user && !isAuthPage) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
@@ -57,7 +61,7 @@ export async function proxy(request: NextRequest) {
     if (
       !profile ||
       profile.status === "inactive" ||
-      (!isPlatformOwner(user.email) && !profile.community_id)
+      !profile.community_id
     ) {
       await supabase.auth.signOut();
       const url = request.nextUrl.clone();

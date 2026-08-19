@@ -50,26 +50,39 @@ export default async function ProtectedLayout({
     redirect("/login");
   }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("full_name, status, role, avatar_url, community_id")
-    .eq("id", user.id)
-    .single();
+  const owner = isPlatformOwner(user.email);
+  const profile = owner
+    ? {
+      full_name: "Platform Owner",
+      status: "active" as const,
+      role: "super_admin" as const,
+      avatar_url: null,
+      community_id: null,
+    }
+    : (await supabase
+      .from("profiles")
+      .select("full_name, status, role, avatar_url, community_id")
+      .eq("id", user.id)
+      .single()).data;
 
-  if (
-    !profile ||
-    profile.status === "inactive" ||
-    (!isPlatformOwner(user.email) && !profile.community_id)
-  ) {
+  if (!owner && (!profile || profile.status === "inactive" || !profile.community_id)) {
     await supabase.auth.signOut();
     redirect(`/login?error=${profile?.status === "inactive" ? "inactive" : "unregistered_user"}`);
   }
 
-  const { data: community } = profile?.community_id
+  const resolvedProfile = profile ?? {
+    full_name: "Member",
+    status: "active" as const,
+    role: "member" as const,
+    avatar_url: null,
+    community_id: null,
+  };
+  const communityId = resolvedProfile.community_id;
+  const { data: community } = !owner && communityId
     ? await supabase
       .from("communities")
       .select("name, logo_url, favicon_url")
-      .eq("id", profile.community_id)
+      .eq("id", communityId)
       .maybeSingle()
     : { data: null };
 
@@ -81,10 +94,10 @@ export default async function ProtectedLayout({
       <Sidebar userEmail={user.email ?? ""} communityName={communityName} communityLogo={communityLogo} />
       <div className="md:pl-64">
         <Header
-          userName={profile?.full_name || "Member"}
+          userName={resolvedProfile.full_name || "Member"}
           userEmail={user.email ?? ""}
-          userRole={profile?.role ?? "member"}
-          avatarUrl={profile?.avatar_url ?? null}
+          userRole={resolvedProfile.role}
+          avatarUrl={resolvedProfile.avatar_url}
           communityName={communityName}
           communityLogo={communityLogo}
         />
