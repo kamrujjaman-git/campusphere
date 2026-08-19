@@ -7,6 +7,7 @@ import { ExpenseList } from "@/components/finance/expense-list";
 import type { Contribution } from "@/types/contribution";
 import type { Expense } from "@/types/expense";
 import { getTenantContext } from "@/lib/supabase/tenant";
+import { isPlatformOwner } from "@/lib/community-validation";
 
 export default async function FinancePage() {
   const supabase = await createClient();
@@ -15,11 +16,12 @@ export default async function FinancePage() {
     data: { user },
   } = await supabase.auth.getUser();
   const tenant = await getTenantContext(supabase);
+  const owner = isPlatformOwner(user?.email);
   if (!tenant) return null;
   const communityFilter = <T,>(query: T): T => tenant.isOwner || !tenant.communityId ? query : (query as { eq: (field: string, value: string) => T }).eq("community_id", tenant.communityId);
 
   const [profileResult, contributionsResult, expensesResult] = await Promise.all([
-    supabase.from("profiles").select("role").eq("id", user?.id).single(),
+    owner ? Promise.resolve({ data: { role: "super_admin" } }) : supabase.from("profiles").select("role").eq("id", user?.id).single(),
     communityFilter(supabase.from("contributions").select("*").order("created_at", { ascending: false })),
     communityFilter(supabase.from("expenses").select("*").order("expense_date", { ascending: false })),
   ]);

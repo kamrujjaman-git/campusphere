@@ -32,26 +32,27 @@ async function requireMemberManager() {
     .eq("id", user.id)
     .single();
 
-  if (error || !requesterProfile) {
+  const ownerBypass = isPlatformOwner(user.email);
+  if (!ownerBypass && (error || !requesterProfile)) {
     throw new Error("Unable to verify your member-management permissions.");
   }
 
-  if (
-    requesterProfile.role !== "super_admin" &&
-    requesterProfile.role !== "admin"
-  ) {
+  if (!ownerBypass && (
+    requesterProfile?.role !== "super_admin" &&
+    requesterProfile?.role !== "admin"
+  )) {
     throw new Error("Only super admins and admins can manage members.");
   }
 
-  if (!isPlatformOwner(user.email) && !requesterProfile.community_id) {
+  if (!ownerBypass && !requesterProfile?.community_id) {
     throw new Error("Unauthorized: Missing Community Scope");
   }
 
   return {
     userId: user.id,
     userEmail: user.email ?? "",
-    requesterRole: requesterProfile.role as UserRole,
-    communityId: requesterProfile.community_id as string | null,
+    requesterRole: (requesterProfile?.role ?? "super_admin") as UserRole,
+    communityId: requesterProfile?.community_id as string | null,
   };
 }
 
@@ -116,6 +117,7 @@ export async function updateMemberRoleStatus(
   }
 
   revalidatePath("/members");
+  revalidatePath("/dashboard");
   revalidatePath("/members/[id]", "page");
   revalidatePath(`/members/${memberId}`);
   return { success: true };
@@ -204,6 +206,7 @@ export async function createMember(formData: FormData): Promise<ActionResult> {
   }
 
   revalidatePath("/members");
+  revalidatePath("/dashboard");
   return { success: true };
 }
 
@@ -254,6 +257,7 @@ export async function deleteMember(memberId: string): Promise<ActionResult> {
   }
 
   revalidatePath("/members");
+  revalidatePath("/dashboard");
   revalidatePath("/members/[id]", "page");
   return { success: true };
 }

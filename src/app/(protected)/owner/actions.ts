@@ -166,5 +166,6 @@ export async function deleteCommunity(communityId: string) {
     if (error) return { success: false, error: error.message };
     if (!data) return { success: false, error: "Community was not found." };
     revalidatePath("/owner");
+    revalidatePath("/dashboard");
     return { success: true };
 }

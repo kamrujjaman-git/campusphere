@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import type { EventType, EventStatus, RsvpStatus } from "@/types/event";
 import { getTenantContext } from "@/lib/supabase/tenant";
+import { isPlatformOwner } from "@/lib/community-validation";
 
 async function requireAdmin() {
   const supabase = await createClient();
@@ -19,11 +20,11 @@ async function requireAdmin() {
     .eq("id", user.id)
     .single();
 
-  if (
+  if (!isPlatformOwner(user.email) && (
     profile?.role !== "super_admin" &&
     profile?.role !== "admin" &&
     profile?.role !== "treasurer"
-  ) {
+  )) {
     throw new Error("Only super admins, admins, and treasurers can manage events.");
   }
 
@@ -174,7 +175,7 @@ export async function setRsvp(eventId: string, status: RsvpStatus) {
     .eq("id", user.id)
     .single();
 
-  if (profile?.status !== "active") {
+  if (!isPlatformOwner(user.email) && profile?.status !== "active") {
     throw new Error("Only active members can RSVP to events.");
   }
 

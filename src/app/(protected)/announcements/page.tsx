@@ -3,6 +3,7 @@ import { AddAnnouncementForm } from "@/components/announcements/add-announcement
 import { AnnouncementCard } from "@/components/announcements/announcement-card";
 import type { Announcement } from "@/types/announcement";
 import { getTenantContext } from "@/lib/supabase/tenant";
+import { isPlatformOwner } from "@/lib/community-validation";
 
 export default async function AnnouncementsPage() {
   const supabase = await createClient();
@@ -11,11 +12,12 @@ export default async function AnnouncementsPage() {
     data: { user },
   } = await supabase.auth.getUser();
   const tenant = await getTenantContext(supabase);
+  const owner = isPlatformOwner(user?.email);
   if (!tenant) return null;
   const communityFilter = <T,>(query: T): T => tenant.isOwner || !tenant.communityId ? query : (query as { eq: (field: string, value: string) => T }).eq("community_id", tenant.communityId);
 
   const [profileResult, announcementsResult] = await Promise.all([
-    supabase.from("profiles").select("role").eq("id", user?.id).single(),
+    owner ? Promise.resolve({ data: { role: "super_admin" } }) : supabase.from("profiles").select("role").eq("id", user?.id).single(),
     communityFilter(supabase.from("announcements").select("*").order("created_at", { ascending: false })),
   ]);
 

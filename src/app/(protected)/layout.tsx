@@ -17,6 +17,10 @@ export async function generateMetadata(): Promise<Metadata> {
 
   if (!user) return { title: "PLAYBOYZ" };
 
+  if (isPlatformOwner(user.email)) {
+    return { title: "Platform Owner" };
+  }
+
   const { data: profile } = await supabase
     .from("profiles")
     .select("community_id")

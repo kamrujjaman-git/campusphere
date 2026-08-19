@@ -3,6 +3,7 @@ import { EventCard } from "@/components/events/event-card";
 import { AddEventForm } from "@/components/events/add-event-form";
 import type { Event } from "@/types/event";
 import { getTenantContext } from "@/lib/supabase/tenant";
+import { isPlatformOwner } from "@/lib/community-validation";
 
 export default async function EventsPage() {
   const supabase = await createClient();
@@ -11,11 +12,12 @@ export default async function EventsPage() {
     data: { user },
   } = await supabase.auth.getUser();
   const tenant = await getTenantContext(supabase);
+  const owner = isPlatformOwner(user?.email);
   if (!tenant) return null;
   const communityFilter = <T,>(query: T): T => tenant.isOwner || !tenant.communityId ? query : (query as { eq: (field: string, value: string) => T }).eq("community_id", tenant.communityId);
 
   const [profileResult, eventsResult] = await Promise.all([
-    supabase.from("profiles").select("role").eq("id", user?.id).single(),
+    owner ? Promise.resolve({ data: { role: "super_admin" } }) : supabase.from("profiles").select("role").eq("id", user?.id).single(),
     communityFilter(supabase.from("events").select("*").order("event_date", { ascending: true, nullsFirst: false }).order("created_at", { ascending: false })),
   ]);
 

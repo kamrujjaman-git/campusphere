@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import type { ExpenseCategory } from "@/types/expense";
 import { getTenantContext } from "@/lib/supabase/tenant";
+import { isPlatformOwner } from "@/lib/community-validation";
 
 const MAX_RECEIPT_SIZE = 5 * 1024 * 1024;
 const RECEIPT_TYPES: Record<string, string> = {
@@ -28,11 +29,11 @@ async function requireAdminOrTreasurer() {
     .eq("id", user.id)
     .single();
 
-  if (
+  if (!isPlatformOwner(user.email) && (
     profile?.role !== "super_admin" &&
     profile?.role !== "admin" &&
     profile?.role !== "treasurer"
-  ) {
+  )) {
     throw new Error("Only admins or treasurers can do this.");
   }
 

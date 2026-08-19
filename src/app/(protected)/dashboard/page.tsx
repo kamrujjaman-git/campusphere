@@ -6,6 +6,7 @@ import { QuickStatCard } from "@/components/dashboard/quick-stat-card";
 import { Users, CalendarDays, AlertCircle } from "lucide-react";
 import { RoleBadge } from "@/components/members/role-badge";
 import { getTenantContext } from "@/lib/supabase/tenant";
+import { isPlatformOwner } from "@/lib/community-validation";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -15,6 +16,7 @@ export default async function DashboardPage() {
   } = await supabase.auth.getUser();
 
   if (!user) redirect("/login");
+  const owner = isPlatformOwner(user.email);
   const tenant = await getTenantContext(supabase);
   if (!tenant) redirect("/login");
   const communityFilter = <T,>(query: T): T =>
@@ -23,7 +25,9 @@ export default async function DashboardPage() {
       : (query as { eq: (field: string, value: string) => T }).eq("community_id", tenant.communityId);
 
   const [profileResult, paidContributionsResult, expensesResult, myContributionsResult, memberCountResult, upcomingEventsResult, dueMembersResult] = await Promise.all([
-    supabase.from("profiles").select("full_name, role, avatar_url").eq("id", user.id).single(),
+    owner
+      ? Promise.resolve({ data: { full_name: "Platform Owner", role: "super_admin", avatar_url: null } })
+      : supabase.from("profiles").select("full_name, role, avatar_url").eq("id", user.id).single(),
     communityFilter(supabase.from("contributions").select("amount").eq("status", "paid")),
     communityFilter(supabase.from("expenses").select("amount")),
     communityFilter(supabase.from("contributions").select("amount, status").eq("user_id", user.id)),
