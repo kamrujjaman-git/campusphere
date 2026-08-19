@@ -91,7 +91,12 @@ export default async function ProtectedLayout({
 
   return (
     <div className="min-h-screen bg-background">
-      <Sidebar userEmail={user.email ?? ""} communityName={communityName} communityLogo={communityLogo} />
+      <Sidebar
+        userEmail={user.email ?? ""}
+        isOwner={owner}
+        communityName={communityName}
+        communityLogo={communityLogo}
+      />
       <div className="md:pl-64">
         <Header
           userName={resolvedProfile.full_name || "Member"}

@@ -26,15 +26,17 @@ const navItems = [
 
 export function Sidebar({
   userEmail,
+  isOwner,
   communityName,
   communityLogo,
 }: {
   userEmail: string;
+  isOwner: boolean;
   communityName: string;
   communityLogo: string;
 }) {
   const pathname = usePathname();
-  const visibleNavItems = isPlatformOwner(userEmail)
+  const visibleNavItems = isOwner || isPlatformOwner(userEmail)
     ? [...navItems, { href: "/owner", label: "Communities", icon: Building2 }]
     : navItems;
 
