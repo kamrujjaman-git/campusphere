@@ -29,7 +29,7 @@ export async function GET(request: Request) {
       const ownerBypass = isPlatformOwner(data.user.email);
 
       if (ownerBypass) {
-        return NextResponse.redirect(`${origin}/owner`);
+        return NextResponse.redirect(new URL("/owner", request.url));
       }
 
       const emailValidation = validateUniversityEmail(data.user.email ?? "");
