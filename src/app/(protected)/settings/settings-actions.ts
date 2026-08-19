@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { isPlatformOwner } from "@/lib/community-validation";
 
 const MAX_AVATAR_SIZE = 2 * 1024 * 1024;
 const AVATAR_TYPES = new Set(["image/jpeg", "image/png"]);
@@ -28,17 +29,32 @@ export async function updateMyProfile(formData: FormData) {
 
   if (!fullName) throw new Error("Name is required.");
 
-  const { error } = await supabase
+  const owner = isPlatformOwner(user.email);
+  const { data: currentProfile } = await supabase
     .from("profiles")
-    .update({
-      full_name: fullName,
-      batch: batch || null,
-      phone: phone || null,
-      profile_completed: true,
-    })
-    .eq("id", user.id);
+    .select("avatar_url, role, status, community_id")
+    .eq("id", user.id)
+    .maybeSingle();
+  const { error } = await supabase.from("profiles").upsert({
+    id: user.id,
+    full_name: fullName,
+    batch: batch || null,
+    phone: phone || null,
+    avatar_url: currentProfile?.avatar_url ?? user.user_metadata?.avatar_url ?? null,
+    community_id: currentProfile?.community_id ?? null,
+    role: currentProfile?.role ?? (owner ? "super_admin" : "member"),
+    status: currentProfile?.status ?? "active",
+    profile_completed: true,
+  });
 
   if (error) throw new Error(error.message);
+
+  if (owner) {
+    const { error: metadataError } = await supabase.auth.updateUser({
+      data: { full_name: fullName, phone, batch },
+    });
+    if (metadataError) throw new Error(metadataError.message);
+  }
 
   revalidatePath("/settings");
   revalidatePath("/dashboard");
@@ -62,10 +78,10 @@ export async function saveAvatar(formData: FormData) {
     return { success: false, error: "Avatar images must be between 1 byte and 2 MB." };
   }
 
-  const fileName = `${user.id}/${crypto.randomUUID()}.jpg`;
+  const fileName = `${user.id}/avatar.png`;
   const { error: uploadError } = await supabase.storage
     .from("avatars")
-    .upload(fileName, entry, { contentType: "image/jpeg", upsert: false });
+    .upload(fileName, entry, { contentType: "image/png", upsert: true });
 
   if (uploadError) {
     return { success: false, error: `Avatar upload failed: ${uploadError.message}` };
@@ -76,14 +92,36 @@ export async function saveAvatar(formData: FormData) {
     .getPublicUrl(fileName);
   const avatarUrl = publicUrlData.publicUrl;
 
-  const { error: profileError } = await supabase
+  const owner = isPlatformOwner(user.email);
+  const { data: currentProfile } = await supabase
     .from("profiles")
-    .update({ avatar_url: avatarUrl })
-    .eq("id", user.id);
+    .select("full_name, phone, batch, role, status, community_id")
+    .eq("id", user.id)
+    .maybeSingle();
+  const { error: profileError } = await supabase.from("profiles").upsert({
+    id: user.id,
+    avatar_url: avatarUrl,
+    full_name: currentProfile?.full_name ?? user.user_metadata?.full_name ?? "",
+    phone: currentProfile?.phone ?? user.user_metadata?.phone ?? null,
+    batch: currentProfile?.batch ?? user.user_metadata?.batch ?? null,
+    role: currentProfile?.role ?? (owner ? "super_admin" : "member"),
+    status: currentProfile?.status ?? "active",
+    community_id: currentProfile?.community_id ?? null,
+    profile_completed: true,
+  });
 
   if (profileError) {
     await supabase.storage.from("avatars").remove([fileName]);
     return { success: false, error: `Profile update failed: ${profileError.message}` };
+  }
+
+  if (owner) {
+    const { error: metadataError } = await supabase.auth.updateUser({
+      data: { avatar_url: avatarUrl },
+    });
+    if (metadataError) {
+      return { success: false, error: `Profile metadata update failed: ${metadataError.message}` };
+    }
   }
 
   revalidatePath("/settings");

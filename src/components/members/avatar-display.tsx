@@ -1,4 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
+"use client";
+
+import { useState } from "react";
 
 export function AvatarDisplay({
     name,
@@ -10,6 +13,7 @@ export function AvatarDisplay({
     size?: "md" | "card" | "lg";
 }) {
     const initial = name?.charAt(0)?.toUpperCase() ?? "?";
+    const [imageFailed, setImageFailed] = useState(false);
     const dimensions = size === "lg"
         ? "h-20 w-20 text-2xl"
         : size === "card"
@@ -19,11 +23,12 @@ export function AvatarDisplay({
 
     return (
         <div className={`flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary font-bold text-primary-foreground ${dimensions}`}>
-            {normalizedAvatarUrl ? (
+            {normalizedAvatarUrl && !imageFailed ? (
                 <img
                     src={normalizedAvatarUrl}
                     alt={`${name ?? "Member"} avatar`}
                     className="h-full w-full object-cover"
+                    onError={() => setImageFailed(true)}
                 />
             ) : (
                 initial

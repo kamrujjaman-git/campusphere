@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { updateMyProfile } from "@/app/(protected)/settings/settings-actions";
 
 export function ProfileEditForm({
@@ -15,6 +16,7 @@ export function ProfileEditForm({
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const router = useRouter();
 
   const handleSubmit = (formData: FormData) => {
     setError(null);
@@ -23,6 +25,7 @@ export function ProfileEditForm({
       try {
         await updateMyProfile(formData);
         setSaved(true);
+        router.refresh();
       } catch (e) {
         setError(e instanceof Error ? e.message : "Something went wrong.");
       }

@@ -5,6 +5,7 @@ import { AdminSettingsPanel } from "@/components/settings/admin-settings-panel";
 import { AvatarUpload } from "@/components/settings/avatar-upload";
 import { CommunityInviteSettings } from "@/components/settings/community-invite-settings";
 import { CommunityBrandingSettings } from "@/components/settings/community-branding-settings";
+import { isPlatformOwner } from "@/lib/community-validation";
 
 export default async function SettingsPage() {
   const supabase = await createClient();
@@ -21,7 +22,16 @@ export default async function SettingsPage() {
     .eq("id", user.id)
     .single();
 
-  const profile = profileResult.data;
+  const profile = profileResult.data ?? (isPlatformOwner(user.email)
+    ? {
+      full_name: user.user_metadata?.full_name ?? "Platform Owner",
+      batch: user.user_metadata?.batch ?? "",
+      phone: user.user_metadata?.phone ?? "",
+      role: "super_admin" as const,
+      avatar_url: user.user_metadata?.avatar_url ?? null,
+      community_id: null,
+    }
+    : null);
 
   const settingsResult = profile?.community_id
     ? await supabase

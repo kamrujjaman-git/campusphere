@@ -97,7 +97,7 @@ export default async function ProtectedLayout({
           userName={resolvedProfile.full_name || "Member"}
           userEmail={user.email ?? ""}
           userRole={resolvedProfile.role}
-          avatarUrl={resolvedProfile.avatar_url}
+          avatarUrl={resolvedProfile.avatar_url ?? user.user_metadata?.avatar_url ?? null}
           communityName={communityName}
           communityLogo={communityLogo}
         />

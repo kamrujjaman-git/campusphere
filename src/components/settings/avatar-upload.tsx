@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { saveAvatar } from "@/app/(protected)/settings/settings-actions";
 import { ImagePlus, RotateCcw } from "lucide-react";
 
@@ -9,6 +10,7 @@ const ACCEPTED_TYPES = ["image/jpeg", "image/png"];
 
 export function AvatarUpload({ avatarUrl }: { avatarUrl: string | null }) {
     const inputRef = useRef<HTMLInputElement>(null);
+    const router = useRouter();
     const [preview, setPreview] = useState(avatarUrl);
     const [source, setSource] = useState<string | null>(null);
     const [zoom, setZoom] = useState(1);
@@ -59,7 +61,7 @@ export function AvatarUpload({ avatarUrl }: { avatarUrl: string | null }) {
             context.drawImage(image, sourceX, sourceY, cropSize, cropSize, 0, 0, size, size);
 
             const blob = await new Promise<Blob | null>((resolve) =>
-                canvas.toBlob(resolve, "image/jpeg", 0.82)
+                canvas.toBlob(resolve, "image/png")
             );
             if (!blob || blob.size > MAX_FILE_SIZE) {
                 setError("The cropped avatar must be 2 MB or smaller.");
@@ -67,7 +69,7 @@ export function AvatarUpload({ avatarUrl }: { avatarUrl: string | null }) {
             }
 
             const formData = new FormData();
-            formData.append("avatar", new File([blob], "avatar.jpg", { type: "image/jpeg" }));
+            formData.append("avatar", new File([blob], "avatar.png", { type: "image/png" }));
             try {
                 const result = await saveAvatar(formData);
                 if (!result.success) {
@@ -77,6 +79,7 @@ export function AvatarUpload({ avatarUrl }: { avatarUrl: string | null }) {
                 setPreview(result.avatarUrl ?? null);
                 setSource(null);
                 setSaved(true);
+                router.refresh();
             } catch (saveError) {
                 setError(saveError instanceof Error ? saveError.message : "Unable to save avatar.");
             }
