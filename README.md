@@ -1,36 +1,52 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🎓 Campusphere
 
-## Getting Started
+> **Empowering Campus Communities & University Clubs**  
+> A modern, multi-tenant SaaS platform built to seamlessly organize, manage, and scale university-centric organizations, events, finances, and members.
 
-First, run the development server:
+---
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## 🌟 Overview
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+**Campusphere** is an all-in-one community management ecosystem designed for higher education institutions. Whether it's managing student clubs, organizing university events, tracking transparent financial transactions, or maintaining member databases—Campusphere unifies campus life into one sleek, fully responsive web application.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## ✨ Key Features
 
-## Learn More
+### 🏛️ Multi-Tenant Architecture
+* **Isolated Communities:** Distinct spaces for different university clubs and organizations.
+* **Smart Domain Verification:** Instant auto-extraction and strict client/server validation for official `.edu` and `.edu.bd` university emails.
+* **Exact-Case Keys:** Unique `community_key` persistence for reliable tenant scoping and routing.
 
-To learn more about Next.js, take a look at the following resources:
+### 👥 Access Control & Role Management
+* **Platform Owner Portal:** Global administrative bypass for managing all communities, approving invite codes, monitoring overall system activity, and overriding tenant scopes seamlessly.
+* **Community Admins & Executive Controls:** Granular permission layers for managing local events, tracking finances, and issuing dynamic membership roles.
+* **Member Management:** Comprehensive member directory with custom profile tracking, role assignments, and search/filter actions.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### 💰 Financial Management & Transparency
+* **Transaction Ledger:** Track income, expenses, and club funds with precision.
+* **Audit Logs:** Immutable record keeping for clear organizational accountability.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### 📅 Event Management & Interactive Feed
+* **Event Creation & Detail Pages:** Schedule, edit, and publish upcoming campus events.
+* **Announcements & Updates:** Centralized community updates visible to all registered members.
 
-## Deploy on Vercel
+### 🎨 Modern UI & Profile Personalization
+* **Responsive Design:** Optimized experience across mobile, tablet, and desktop screens.
+* **Storage Integration:** Integrated image uploads for member avatars and custom community branding via Supabase Storage.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+---
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 🛠️ Tech Stack
+
+* **Framework:** Next.js (App Router, Server Components, Server Actions)
+* **Language:** TypeScript
+* **Database & Auth:** Supabase (PostgreSQL, Row Level Security, Storage Buckets, OAuth)
+* **Authentication:** Google OAuth 2.0 & Email/Password
+* **Styling:** Tailwind CSS, Lucide React (Icons), Shadcn UI Components
+* **Deployment:** Vercel
+
+---
+
+📜 License
+This project is proprietary software developed for managing campus communities worldwide. All rights reserved.
