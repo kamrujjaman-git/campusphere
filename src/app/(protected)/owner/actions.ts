@@ -2,7 +2,7 @@
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import { isPlatformOwner, normalizeEmail } from "@/lib/community-validation";
+import { isPlatformOwner, isUniversityDomain, normalizeEmail } from "@/lib/community-validation";
 import { isValidUuid } from "@/lib/utils";
 import { revalidatePath } from "next/cache";
 
@@ -82,7 +82,9 @@ async function uploadLogo(adminClient: AdminClient, communityId: string, entry: 
 function validateCommunityInput(name: string, domain: string, adminEmail: string) {
     if (!name || !domain || !adminEmail) return "Name, domain, and super admin email are required.";
     if (!/^\S+@\S+\.\S+$/.test(adminEmail)) return "Enter a valid super admin email.";
-    if (!/^([a-z0-9-]+\.)+[a-z]{2,}$/i.test(domain)) return "Enter a valid university domain.";
+    const emailDomain = adminEmail.slice(adminEmail.lastIndexOf("@") + 1).toLowerCase();
+    if (!isUniversityDomain(emailDomain)) return "Invalid email! Only official university emails ending in .edu or .edu.bd are allowed.";
+    if (!isUniversityDomain(domain) || domain !== emailDomain) return "University domain must match the super admin email and end in .edu or .edu.bd.";
     return null;
 }
 
