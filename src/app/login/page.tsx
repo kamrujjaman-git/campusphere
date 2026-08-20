@@ -34,7 +34,7 @@ function LoginContent() {
     callbackUrl.searchParams.set("tab", mode);
     if (mode === "join") {
       if (!communityKey.trim()) return;
-      callbackUrl.searchParams.set("community_key", communityKey.trim().toLowerCase());
+      callbackUrl.searchParams.set("community_key", communityKey.trim());
     }
     if (mode === "create") {
       if (!communityName.trim()) return;

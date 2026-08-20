@@ -13,7 +13,8 @@ export async function GET(request: Request) {
   const tab = ["signin", "join", "create"].includes(searchParams.get("tab") ?? "")
     ? searchParams.get("tab")!
     : "signin";
-  const communityKey = searchParams.get("community_key")?.trim().toLowerCase();
+  const rawCommunityKey = searchParams.get("community_key") ?? "";
+  const communityKey = rawCommunityKey.trim();
   const createCommunityName = searchParams.get("create_community_name")?.trim();
   const loginRedirect = (error: string, detail?: string) => {
     const params = new URLSearchParams({ tab, error });
@@ -127,7 +128,7 @@ export async function GET(request: Request) {
         const { data: community, error: communityError } = await supabase
           .from("communities")
           .select("id, domain")
-          .eq("key", communityKey)
+          .ilike("community_key", communityKey)
           .maybeSingle();
 
         if (communityError || !community) {
