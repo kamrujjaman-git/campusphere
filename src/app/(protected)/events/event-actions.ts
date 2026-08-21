@@ -36,6 +36,10 @@ async function requireAdmin() {
 export async function createEvent(formData: FormData) {
   const { supabase, userId, tenant } = await requireAdmin();
 
+  if (!tenant?.communityId) {
+    throw new Error("Your account is not linked to a community.");
+  }
+
   const title = formData.get("title") as string;
   const type = formData.get("type") as EventType;
   const description = formData.get("description") as string;
@@ -59,7 +63,7 @@ export async function createEvent(formData: FormData) {
     budget,
     extra_contribution_amount: extraContribution,
     created_by: userId,
-    community_id: tenant?.communityId,
+    community_id: tenant.communityId,
   });
 
   if (error) throw new Error(error.message);
@@ -97,8 +101,7 @@ export async function updateEvent(eventId: string, formData: FormData) {
       extra_contribution_amount: extraContribution,
     })
     .eq("id", eventId);
-  if (tenant?.communityId && !tenant.isOwner) updateQuery = updateQuery.eq("community_id", tenant.communityId);
-  if (!tenant.isOwner) updateQuery = updateQuery.eq("community_id", tenant.communityId!);
+  if (tenant?.communityId) updateQuery = updateQuery.eq("community_id", tenant.communityId);
   const { data, error } = await updateQuery.select("id").maybeSingle();
 
   if (error) throw new Error(`Event update failed: ${error.message}`);
@@ -143,8 +146,7 @@ export async function updateEventStatus(eventId: string, status: EventStatus) {
     .from("events")
     .update({ status })
     .eq("id", eventId);
-  if (tenant?.communityId && !tenant.isOwner) query = query.eq("community_id", tenant.communityId);
-  if (!tenant.isOwner) query = query.eq("community_id", tenant.communityId!);
+  if (tenant?.communityId) query = query.eq("community_id", tenant.communityId);
   const { data, error } = await query.select("id").maybeSingle();
 
   if (error) throw new Error(error.message);

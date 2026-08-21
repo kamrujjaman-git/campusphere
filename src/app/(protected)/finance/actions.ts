@@ -45,7 +45,10 @@ function getMonday(date: Date) {
 export async function generateWeeklyDues() {
   try {
     const { supabase, tenant } = await requireAdminOrTreasurer();
-    const scope = <T,>(query: T): T => tenant.isOwner ? query : (query as { eq: (field: string, value: string) => T }).eq("community_id", tenant.communityId!);
+    if (!tenant?.communityId) {
+      throw new Error("Your account is not linked to a community.");
+    }
+    const scope = <T,>(query: T): T => (query as { eq: (field: string, value: string) => T }).eq("community_id", tenant.communityId!);
     const weekStart = getMonday(new Date());
 
     const { data: appSettings } = await supabase
@@ -120,16 +123,19 @@ export async function generateWeeklyDues() {
 
 export async function markContributionPaid(contributionId: string) {
   const { supabase, userId, tenant } = await requireAdminOrTreasurer();
+  if (!tenant?.communityId) {
+    throw new Error("Your account is not linked to a community.");
+  }
 
-  let query = supabase
+  const query = supabase
     .from("contributions")
     .update({
       status: "paid",
       paid_at: new Date().toISOString(),
       marked_by: userId,
     })
-    .eq("id", contributionId);
-  if (!tenant.isOwner) query = query.eq("community_id", tenant.communityId!);
+    .eq("id", contributionId)
+    .eq("community_id", tenant.communityId);
   const { data, error } = await query.select("id").maybeSingle();
 
   if (error) throw new Error(error.message);
@@ -141,12 +147,15 @@ export async function markContributionPaid(contributionId: string) {
 
 export async function markContributionDue(contributionId: string) {
   const { supabase, tenant } = await requireAdminOrTreasurer();
+  if (!tenant?.communityId) {
+    throw new Error("Your account is not linked to a community.");
+  }
 
-  let query = supabase
+  const query = supabase
     .from("contributions")
     .update({ status: "due", paid_at: null, marked_by: null })
-    .eq("id", contributionId);
-  if (!tenant.isOwner) query = query.eq("community_id", tenant.communityId!);
+    .eq("id", contributionId)
+    .eq("community_id", tenant.communityId);
   const { data, error } = await query.select("id").maybeSingle();
 
   if (error) throw new Error(error.message);
@@ -162,6 +171,9 @@ export async function updateContribution(
   status: "due" | "paid"
 ) {
   const { supabase, userId, tenant } = await requireAdminOrTreasurer();
+  if (!tenant?.communityId) {
+    throw new Error("Your account is not linked to a community.");
+  }
 
   if (!Number.isFinite(amount) || amount <= 0) {
     throw new Error("Contribution amount must be greater than zero.");
@@ -171,7 +183,7 @@ export async function updateContribution(
     throw new Error("Invalid contribution status.");
   }
 
-  let query = supabase
+  const query = supabase
     .from("contributions")
     .update({
       amount,
@@ -179,8 +191,8 @@ export async function updateContribution(
       paid_at: status === "paid" ? new Date().toISOString() : null,
       marked_by: status === "paid" ? userId : null,
     })
-    .eq("id", contributionId);
-  if (!tenant.isOwner) query = query.eq("community_id", tenant.communityId!);
+    .eq("id", contributionId)
+    .eq("community_id", tenant.communityId);
   const { data, error } = await query.select("id").maybeSingle();
 
   if (error) throw new Error(`Contribution update failed: ${error.message}`);
@@ -192,12 +204,15 @@ export async function updateContribution(
 
 export async function deleteContribution(contributionId: string) {
   const { supabase, tenant } = await requireAdminOrTreasurer();
+  if (!tenant?.communityId) {
+    throw new Error("Your account is not linked to a community.");
+  }
 
-  let query = supabase
+  const query = supabase
     .from("contributions")
     .delete()
-    .eq("id", contributionId);
-  if (!tenant.isOwner) query = query.eq("community_id", tenant.communityId!);
+    .eq("id", contributionId)
+    .eq("community_id", tenant.communityId);
   const { data, error } = await query.select("id").maybeSingle();
 
   if (error) throw new Error(`Contribution deletion failed: ${error.message}`);
@@ -213,7 +228,10 @@ export async function createEventContribution(
   amount: number
 ) {
   const { supabase, tenant } = await requireAdminOrTreasurer();
-  const scope = <T,>(query: T): T => tenant.isOwner ? query : (query as { eq: (field: string, value: string) => T }).eq("community_id", tenant.communityId!);
+  if (!tenant?.communityId) {
+    throw new Error("Your account is not linked to a community.");
+  }
+  const scope = <T,>(query: T): T => (query as { eq: (field: string, value: string) => T }).eq("community_id", tenant.communityId!);
 
   const { data: activeMembers } = await scope(supabase
     .from("profiles")

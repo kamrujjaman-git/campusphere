@@ -43,6 +43,10 @@ async function requireAdminOrTreasurer() {
 export async function createExpense(formData: FormData) {
   const { supabase, userId, tenant } = await requireAdminOrTreasurer();
 
+  if (!tenant?.communityId) {
+    throw new Error("Your account is not linked to a community.");
+  }
+
   const title = formData.get("title") as string;
   const category = formData.get("category") as ExpenseCategory;
   const amount = parseFloat(formData.get("amount") as string);
@@ -104,7 +108,7 @@ export async function createExpense(formData: FormData) {
     receipt_url: receiptUrl,
     spent_by: userId,
     approved_by: userId,
-    community_id: tenant?.communityId,
+    community_id: tenant.communityId,
   });
 
   if (error) {
@@ -129,12 +133,15 @@ export async function createExpense(formData: FormData) {
 
 export async function deleteExpense(expenseId: string) {
   const { supabase, tenant } = await requireAdminOrTreasurer();
+  if (!tenant?.communityId) {
+    throw new Error("Your account is not linked to a community.");
+  }
 
-  let query = supabase
+  const query = supabase
     .from("expenses")
     .delete()
-    .eq("id", expenseId);
-  if (tenant?.communityId && !tenant.isOwner) query = query.eq("community_id", tenant.communityId);
+    .eq("id", expenseId)
+    .eq("community_id", tenant.communityId);
   const { data, error } = await query.select("id").maybeSingle();
 
   if (error) throw new Error(error.message);
@@ -162,11 +169,15 @@ export async function updateExpense(expenseId: string, formData: FormData) {
     throw new Error("Please provide a valid expense date.");
   }
 
-  let query = supabase
+  if (!tenant?.communityId) {
+    throw new Error("Your account is not linked to a community.");
+  }
+
+  const query = supabase
     .from("expenses")
     .update({ title, category, amount, expense_date: expenseDate })
-    .eq("id", expenseId);
-  if (tenant?.communityId && !tenant.isOwner) query = query.eq("community_id", tenant.communityId);
+    .eq("id", expenseId)
+    .eq("community_id", tenant.communityId);
   const { data, error } = await query.select("id").maybeSingle();
 
   if (error) throw new Error(`Expense update failed: ${error.message}`);

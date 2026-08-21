@@ -15,20 +15,20 @@ export async function getTenantContext(
     } = await supabase.auth.getUser();
     if (!user) return null;
 
-    if (isPlatformOwner(user.email)) {
-        return {
-            user,
-            communityId: null,
-            isOwner: true,
-        };
-    }
-
     const { data: profile } = await supabase
         .from("profiles")
         .select("community_id")
         .eq("id", user.id)
         .maybeSingle();
     const communityId = profile?.community_id ?? null;
+
+    if (isPlatformOwner(user.email)) {
+        return {
+            user,
+            communityId,
+            isOwner: true,
+        };
+    }
 
     if (!communityId) {
         throw new Error("Unauthorized: Missing Community Scope");
@@ -46,9 +46,8 @@ export function scopeToCommunity<T>(
     context: TenantContext,
     column = "community_id"
 ): T {
-    if (context.isOwner) return query;
     if (!context.communityId) {
-        throw new Error("Unauthorized: Missing Community Scope");
+        return query;
     }
     return (query as { eq: (field: string, value: string) => T }).eq(
         column,

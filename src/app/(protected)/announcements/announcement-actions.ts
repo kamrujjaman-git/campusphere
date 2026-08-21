@@ -33,6 +33,10 @@ async function requireAdmin() {
 export async function createAnnouncement(formData: FormData) {
   const { supabase, userId, tenant } = await requireAdmin();
 
+  if (!tenant?.communityId) {
+    throw new Error("Your account is not linked to a community.");
+  }
+
   const title = formData.get("title") as string;
   const body = formData.get("body") as string;
 
@@ -44,7 +48,7 @@ export async function createAnnouncement(formData: FormData) {
     title,
     body,
     created_by: userId,
-    community_id: tenant?.communityId,
+    community_id: tenant.communityId,
   });
 
   if (error) throw new Error(error.message);
@@ -54,12 +58,15 @@ export async function createAnnouncement(formData: FormData) {
 
 export async function deleteAnnouncement(id: string) {
   const { supabase, tenant } = await requireAdmin();
+  if (!tenant?.communityId) {
+    throw new Error("Your account is not linked to a community.");
+  }
 
-  let query = supabase
+  const query = supabase
     .from("announcements")
     .delete()
-    .eq("id", id);
-  if (tenant?.communityId && !tenant.isOwner) query = query.eq("community_id", tenant.communityId);
+    .eq("id", id)
+    .eq("community_id", tenant.communityId);
   const { data, error } = await query.select("id").maybeSingle();
 
   if (error) throw new Error(error.message);
@@ -77,11 +84,15 @@ export async function updateAnnouncement(id: string, formData: FormData) {
     throw new Error("Title and message are required.");
   }
 
-  let query = supabase
+  if (!tenant?.communityId) {
+    throw new Error("Your account is not linked to a community.");
+  }
+
+  const query = supabase
     .from("announcements")
     .update({ title, body })
-    .eq("id", id);
-  if (tenant?.communityId && !tenant.isOwner) query = query.eq("community_id", tenant.communityId);
+    .eq("id", id)
+    .eq("community_id", tenant.communityId);
   const { data, error } = await query.select("id").maybeSingle();
 
   if (error) throw new Error(`Announcement update failed: ${error.message}`);
