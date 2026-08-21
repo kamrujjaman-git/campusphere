@@ -79,6 +79,100 @@ async function uploadLogo(adminClient: AdminClient, communityId: string, entry: 
     return adminClient.storage.from("branding").getPublicUrl(path).data.publicUrl;
 }
 
+async function deleteCommunityBrandingFiles(adminClient: AdminClient, communityId: string) {
+    const { data: files, error } = await adminClient.storage.from("branding").list(communityId);
+    if (error) {
+        const message = error.message.toLowerCase();
+        if (!message.includes("not found") && !message.includes("does not exist") && !message.includes("no such")) {
+            throw new Error(`Community branding cleanup failed: ${error.message}`);
+        }
+        return;
+    }
+
+    const paths = (files ?? []).map((file) => `${communityId}/${file.name}`);
+    if (paths.length === 0) return;
+
+    const { error: removeError } = await adminClient.storage.from("branding").remove(paths);
+    if (removeError) {
+        throw new Error(`Community branding cleanup failed: ${removeError.message}`);
+    }
+}
+
+async function deleteCommunityMembers(adminClient: AdminClient, communityId: string) {
+    const { data: members, error: memberLookupError } = await adminClient
+        .from("profiles")
+        .select("id")
+        .eq("community_id", communityId);
+
+    if (memberLookupError) {
+        throw new Error(`Member cleanup failed: ${memberLookupError.message}`);
+    }
+
+    for (const member of members ?? []) {
+        if (!member.id) continue;
+        const { error: authError } = await adminClient.auth.admin.deleteUser(member.id);
+        if (authError) {
+            const message = authError.message.toLowerCase();
+            if (!message.includes("not found") && !message.includes("does not exist")) {
+                throw new Error(`Member account cleanup failed: ${authError.message}`);
+            }
+        }
+    }
+
+    const { error: profileDeleteError } = await adminClient
+        .from("profiles")
+        .delete()
+        .eq("community_id", communityId);
+
+    if (profileDeleteError) {
+        throw new Error(`Community member cleanup failed: ${profileDeleteError.message}`);
+    }
+}
+
+async function deleteCommunityChildRows(adminClient: AdminClient, communityId: string) {
+    const { data: eventRows, error: eventLookupError } = await adminClient
+        .from("events")
+        .select("id")
+        .eq("community_id", communityId);
+
+    if (eventLookupError) {
+        throw new Error(`Event lookup failed: ${eventLookupError.message}`);
+    }
+
+    const eventIds = (eventRows ?? []).map((event) => event.id);
+
+    if (eventIds.length > 0) {
+        const { error: participantDeleteError } = await adminClient
+            .from("event_participants")
+            .delete()
+            .in("event_id", eventIds);
+
+        if (participantDeleteError) {
+            throw new Error(`Event participant cleanup failed: ${participantDeleteError.message}`);
+        }
+    }
+
+    const tables = [
+        "community_admin_invites",
+        "announcements",
+        "expenses",
+        "contributions",
+        "app_settings",
+        "events",
+    ] as const;
+
+    for (const tableName of tables) {
+        const { error } = await adminClient.from(tableName).delete().eq("community_id", communityId);
+        if (error) {
+            const message = error.message.toLowerCase();
+            if (message.includes("does not exist") || message.includes("column") && message.includes("community_id")) {
+                continue;
+            }
+            throw new Error(`${tableName} cleanup failed: ${error.message}`);
+        }
+    }
+}
+
 function validateCommunityInput(name: string, domain: string, adminEmail: string) {
     if (!name || !domain || !adminEmail) return "Name, domain, and super admin email are required.";
     if (!/^\S+@\S+\.\S+$/.test(adminEmail)) return "Enter a valid super admin email.";
@@ -162,10 +256,42 @@ export async function updateCommunity(formData: FormData) {
 export async function deleteCommunity(communityId: string) {
     const { adminClient } = await requireOwner();
     if (!isValidUuid(communityId)) return { success: false, error: "Community was not found." };
-    const { data, error } = await adminClient.from("communities").delete().eq("id", communityId).select("id").maybeSingle();
-    if (error) return { success: false, error: error.message };
-    if (!data) return { success: false, error: "Community was not found." };
-    revalidatePath("/owner");
-    revalidatePath("/dashboard");
-    return { success: true };
+
+    try {
+        const { data: community, error: communityLookupError } = await adminClient
+            .from("communities")
+            .select("id, logo_url, favicon_url")
+            .eq("id", communityId)
+            .maybeSingle();
+
+        if (communityLookupError) {
+            return { success: false, error: communityLookupError.message };
+        }
+        if (!community) {
+            return { success: false, error: "Community was not found." };
+        }
+
+        await deleteCommunityChildRows(adminClient, communityId);
+        await deleteCommunityMembers(adminClient, communityId);
+        await deleteCommunityBrandingFiles(adminClient, communityId);
+
+        const { data, error } = await adminClient
+            .from("communities")
+            .delete()
+            .eq("id", communityId)
+            .select("id")
+            .maybeSingle();
+
+        if (error) return { success: false, error: error.message };
+        if (!data) return { success: false, error: "Community was not found." };
+
+        revalidatePath("/owner");
+        revalidatePath("/dashboard");
+        return { success: true };
+    } catch (error) {
+        return {
+            success: false,
+            error: error instanceof Error ? error.message : "Community deletion failed.",
+        };
+    }
 }
