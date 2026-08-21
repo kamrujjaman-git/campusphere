@@ -210,12 +210,19 @@ export async function updateCommunityBranding(formData: FormData) {
     const extension = BRANDING_TYPES.get(file.type);
     if (!extension) throw new Error(`${label} has an unsupported image type.`);
     const path = `${communityId}/${label}-${crypto.randomUUID()}.${extension}`;
-    const { error } = await supabase.storage
+    const { error: uploadError } = await supabase.storage
       .from("branding")
       .upload(path, file, { contentType: file.type, upsert: false });
-    if (error) throw new Error(`${label} upload failed: ${error.message}`);
+    if (uploadError) throw new Error(`${label} upload failed: ${uploadError.message}`);
+
     uploadedPaths.push(path);
-    return supabase.storage.from("branding").getPublicUrl(path).data.publicUrl;
+
+    const { data: publicUrlData } = supabase.storage.from("branding").getPublicUrl(path);
+    if (!publicUrlData?.publicUrl) {
+      throw new Error(`${label} URL generation failed: No public URL was returned.`);
+    }
+
+    return publicUrlData.publicUrl;
   };
 
   let logoUrl = currentCommunity.logo_url;
@@ -238,7 +245,9 @@ export async function updateCommunityBranding(formData: FormData) {
   }
 
   revalidatePath("/", "layout");
+  revalidatePath("/", "page");
   revalidatePath("/settings");
   revalidatePath("/dashboard");
+  revalidatePath("/owner");
 }
 
