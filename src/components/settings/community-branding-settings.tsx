@@ -48,12 +48,12 @@ export function CommunityBrandingSettings({
         if (logoFile) formData.set("logo", logoFile);
         if (faviconFile) formData.set("favicon", faviconFile);
         startTransition(async () => {
-            try {
-                await updateCommunityBranding(formData);
-                setMessage("Community branding updated.");
-            } catch (saveError) {
-                setError(saveError instanceof Error ? saveError.message : "Unable to update branding.");
+            const result = await updateCommunityBranding(formData);
+            if (!result.success) {
+                setError(result.error);
+                return;
             }
+            setMessage("Community branding updated.");
         });
     };
 

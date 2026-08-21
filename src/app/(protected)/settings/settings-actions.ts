@@ -173,81 +173,106 @@ export async function updateWeeklyAmount(amount: number) {
   revalidatePath("/settings");
 }
 
-export async function updateCommunityBranding(formData: FormData) {
-  const { supabase, communityId: profileCommunityId, isOwner } = await requireAdmin();
-  const requestedCommunityId = String(formData.get("community_id") ?? "").trim();
-  const communityId = isOwner ? requestedCommunityId || profileCommunityId : profileCommunityId;
-  if (!communityId || !isValidUuid(communityId)) throw new Error("A valid community is required.");
-  const name = String(formData.get("name") ?? "").trim();
-  const logoEntry = formData.get("logo");
-  const faviconEntry = formData.get("favicon");
-  const logoFile = logoEntry instanceof File && logoEntry.size > 0 ? logoEntry : null;
-  const faviconFile = faviconEntry instanceof File && faviconEntry.size > 0 ? faviconEntry : null;
-
-  if (!name) throw new Error("Community name is required.");
-
-  for (const [label, file] of [["logo", logoFile], ["favicon", faviconFile]] as const) {
-    if (!file) continue;
-    if (file.size > MAX_BRANDING_SIZE) {
-      throw new Error(`${label} images must be 2 MB or smaller.`);
-    }
-    if (!BRANDING_TYPES.has(file.type)) {
-      throw new Error(`${label} must be a JPEG, PNG, WEBP, or ICO image.`);
-    }
-  }
-
-  const { data: currentCommunity, error: communityLookupError } = await supabase
-    .from("communities")
-    .select("logo_url, favicon_url")
-    .eq("id", communityId)
-    .single();
-  if (communityLookupError || !currentCommunity) {
-    throw new Error("Your community could not be verified.");
-  }
-
-  const uploadedPaths: string[] = [];
-  const uploadBrandingFile = async (file: File, label: string) => {
-    const extension = BRANDING_TYPES.get(file.type);
-    if (!extension) throw new Error(`${label} has an unsupported image type.`);
-    const path = `${communityId}/${label}-${crypto.randomUUID()}.${extension}`;
-    const { error: uploadError } = await supabase.storage
-      .from("branding")
-      .upload(path, file, { contentType: file.type, upsert: false });
-    if (uploadError) throw new Error(`${label} upload failed: ${uploadError.message}`);
-
-    uploadedPaths.push(path);
-
-    const { data: publicUrlData } = supabase.storage.from("branding").getPublicUrl(path);
-    if (!publicUrlData?.publicUrl) {
-      throw new Error(`${label} URL generation failed: No public URL was returned.`);
-    }
-
-    return publicUrlData.publicUrl;
-  };
-
-  let logoUrl = currentCommunity.logo_url;
-  let faviconUrl = currentCommunity.favicon_url;
+export async function updateCommunityBranding(formData: FormData): Promise<{ success: true } | { success: false; error: string }> {
   try {
-    if (logoFile) logoUrl = await uploadBrandingFile(logoFile, "logo");
-    if (faviconFile) faviconUrl = await uploadBrandingFile(faviconFile, "favicon");
-
-    const { error } = await supabase
-      .from("communities")
-      .update({ name, logo_url: logoUrl, favicon_url: faviconUrl })
-      .eq("id", communityId);
-
-    if (error) throw new Error(`Branding update failed: ${error.message}`);
-  } catch (error) {
-    if (uploadedPaths.length > 0) {
-      await supabase.storage.from("branding").remove(uploadedPaths);
+    const { supabase, communityId: profileCommunityId, isOwner } = await requireAdmin();
+    const requestedCommunityId = String(formData.get("community_id") ?? "").trim();
+    const communityId = isOwner ? requestedCommunityId || profileCommunityId : profileCommunityId;
+    if (!communityId || !isValidUuid(communityId)) {
+      return { success: false, error: "A valid community is required." };
     }
-    throw error;
-  }
 
-  revalidatePath("/", "layout");
-  revalidatePath("/", "page");
-  revalidatePath("/settings");
-  revalidatePath("/dashboard");
-  revalidatePath("/owner");
+    const name = String(formData.get("name") ?? "").trim();
+    const logoEntry = formData.get("logo");
+    const faviconEntry = formData.get("favicon");
+    const logoFile = logoEntry instanceof File && logoEntry.size > 0 ? logoEntry : null;
+    const faviconFile = faviconEntry instanceof File && faviconEntry.size > 0 ? faviconEntry : null;
+
+    if (!name) {
+      return { success: false, error: "Community name is required." };
+    }
+
+    for (const [label, file] of [["logo", logoFile], ["favicon", faviconFile]] as const) {
+      if (!file) continue;
+      if (file.size > MAX_BRANDING_SIZE) {
+        return { success: false, error: `${label} images must be 2 MB or smaller.` };
+      }
+      if (!BRANDING_TYPES.has(file.type)) {
+        return { success: false, error: `${label} must be a JPEG, PNG, WEBP, or ICO image.` };
+      }
+    }
+
+    const { data: currentCommunity, error: communityLookupError } = await supabase
+      .from("communities")
+      .select("logo_url, favicon_url")
+      .eq("id", communityId)
+      .single();
+    if (communityLookupError || !currentCommunity) {
+      return { success: false, error: "Your community could not be verified." };
+    }
+
+    const uploadedPaths: string[] = [];
+    const uploadBrandingFile = async (file: File, label: string) => {
+      const extension = BRANDING_TYPES.get(file.type);
+      if (!extension) {
+        throw new Error(`${label} has an unsupported image type.`);
+      }
+
+      const path = `${communityId}/${label}-${crypto.randomUUID()}.${extension}`;
+      const { error: uploadError } = await supabase.storage
+        .from("branding")
+        .upload(path, file, { contentType: file.type, upsert: false });
+      if (uploadError) {
+        throw new Error(`${label} upload failed: ${uploadError.message}`);
+      }
+
+      uploadedPaths.push(path);
+
+      const { data: publicUrlData } = supabase.storage.from("branding").getPublicUrl(path);
+      if (!publicUrlData?.publicUrl) {
+        throw new Error(`${label} URL generation failed: No public URL was returned.`);
+      }
+
+      return publicUrlData.publicUrl;
+    };
+
+    let logoUrl = currentCommunity.logo_url;
+    let faviconUrl = currentCommunity.favicon_url;
+
+    try {
+      if (logoFile) logoUrl = await uploadBrandingFile(logoFile, "logo");
+      if (faviconFile) faviconUrl = await uploadBrandingFile(faviconFile, "favicon");
+
+      const { error } = await supabase
+        .from("communities")
+        .update({ name, logo_url: logoUrl, favicon_url: faviconUrl })
+        .eq("id", communityId);
+
+      if (error) {
+        throw new Error(`Branding update failed: ${error.message}`);
+      }
+    } catch (error) {
+      if (uploadedPaths.length > 0) {
+        await supabase.storage.from("branding").remove(uploadedPaths);
+      }
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Unable to update branding.",
+      };
+    }
+
+    revalidatePath("/", "layout");
+    revalidatePath("/", "page");
+    revalidatePath("/settings");
+    revalidatePath("/dashboard");
+    revalidatePath("/owner");
+
+    return { success: true };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unable to update branding.",
+    };
+  }
 }
 
